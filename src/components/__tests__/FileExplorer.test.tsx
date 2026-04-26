@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FileExplorer } from '../FileExplorer'
 import { Provider } from 'jotai'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as driveAPI from '../../drive'
 
 // Mock drive module
@@ -14,8 +15,20 @@ vi.mock('../../drive', () => ({
   loadBoardFromDriveId: vi.fn(),
 }))
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
+
 function ExplorerWrapper({ children }: { children: React.ReactNode }) {
-  return <Provider>{children}</Provider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Provider>{children}</Provider>
+    </QueryClientProvider>
+  )
 }
 
 describe('FileExplorer Component', () => {
