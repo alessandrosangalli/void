@@ -135,6 +135,7 @@ export function Toolbar() {
                     "relative h-10 w-10 rounded-xl transition-all",
                     activeTool === tool.id ? "shadow-lg scale-105" : "text-muted-foreground hover:bg-muted"
                   )}
+                  aria-label={tool.label}
                   onClick={() => tool.id === 'image' ? document.getElementById('image-upload')?.click() : setActiveTool(tool.id as ToolType)}
                 >
                   <tool.icon className={cn("h-5 w-5", activeTool === tool.id ? "stroke-[2.5px]" : "stroke-[2px]")} />
@@ -163,6 +164,7 @@ export function Toolbar() {
         {isNaming ? (
           <Input 
             autoFocus
+            data-testid="board-name-input"
             value={tempName}
             onChange={e => setTempName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleNameSubmit()}

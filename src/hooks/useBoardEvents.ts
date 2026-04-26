@@ -8,6 +8,18 @@ import {
   imagesAtom 
 } from '../store'
 import type { Point } from '../store'
+import {
+  screenToWorld,
+  zoomAtPoint,
+  zoomAtCenter,
+  wheelDeltaToZoomFactor,
+  panCamera,
+  isDiscreteWheelEvent,
+  pinchZoomFactor,
+  pointerDistance,
+  pointerMidpoint,
+  fitImageDimensions,
+} from '../lib/camera.utils'
 
 export function useBoardEvents() {
   const [activeTool, setActiveTool] = useAtom(activeToolAtom)
@@ -36,17 +48,12 @@ export function useBoardEvents() {
       if (key === 'r') setActiveTool('text')
       
       if (e.ctrlKey || e.metaKey) {
-        const zoomAction = (dir: 'in'|'out'|'reset') => {
-          const f = dir === 'in' ? 1.2 : dir === 'out' ? 1/1.2 : 1
-          setCamera(p => {
-            if (dir === 'reset') return { zoom: 1, x: 0, y: 0 }
-            const nz = Math.min(Math.max(p.zoom * f, 0.05), 20), r = nz / p.zoom
-            return { zoom: nz, x: (window.innerWidth/2) - ((window.innerWidth/2) - p.x) * r, y: (window.innerHeight/2) - ((window.innerHeight/2) - p.y) * r }
-          })
+        const doZoom = (dir: 'in' | 'out' | 'reset') => {
+          setCamera(p => zoomAtCenter(p, dir, window.innerWidth, window.innerHeight))
         }
-        if (key === '=' || key === '+') { e.preventDefault(); zoomAction('in') }
-        if (key === '-') { e.preventDefault(); zoomAction('out') }
-        if (key === '0') { e.preventDefault(); zoomAction('reset') }
+        if (key === '=' || key === '+') { e.preventDefault(); doZoom('in') }
+        if (key === '-') { e.preventDefault(); doZoom('out') }
+        if (key === '0') { e.preventDefault(); doZoom('reset') }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -71,8 +78,7 @@ export function useBoardEvents() {
     
     if (activeTool === 'eraser' || e.target instanceof HTMLTextAreaElement) return
     
-    const wx = (e.clientX - camera.x) / camera.zoom
-    const wy = (e.clientY - camera.y) / camera.zoom
+    const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY, camera)
     
     if (activeTool === 'text') { 
       const id = Math.random().toString(36).substr(2, 9)
@@ -98,32 +104,27 @@ export function useBoardEvents() {
     
     if (activePointers.current.size === 2 && lastPinchDist.current !== null) {
       const pts = Array.from(activePointers.current.values())
-      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-      const f = d / lastPinchDist.current
-      lastPinchDist.current = d
-      
-      setCamera(p => { 
-        const nz = Math.min(Math.max(p.zoom * f, 0.05), 20)
-        const r = nz / p.zoom
-        const cx = (pts[0].x + pts[1].x) / 2
-        const cy = (pts[0].y + pts[1].y) / 2
-        return { zoom: nz, x: cx - (cx - p.x) * r, y: cy - (cy - p.y) * r } 
-      })
+      const dist = pointerDistance(pts[0], pts[1])
+      const factor = pinchZoomFactor(dist, lastPinchDist.current)
+      lastPinchDist.current = dist
+      const mid = pointerMidpoint(pts[0], pts[1])
+      setCamera(p => zoomAtPoint(p, factor, mid.x, mid.y))
       return
     }
     
     if (isRightClickDragging && lastPointer) {
       const dx = e.clientX - lastPointer[0]
       const dy = e.clientY - lastPointer[1]
-      setCamera(p => ({ ...p, x: p.x + dx, y: p.y + dy }))
+      setCamera(p => panCamera(p, dx, dy))
       setLastPointer([e.clientX, e.clientY])
       return
     }
     
     if (activeTool === 'eraser' || activeTool === 'text') return
     
-    if (activeTool === 'draw' && e.buttons === 1) { 
-      setCurrentStroke(p => [...p, [(e.clientX - camera.x) / camera.zoom, (e.clientY - camera.y) / camera.zoom, e.pressure]]) 
+    if (activeTool === 'draw' && e.buttons === 1) {
+      const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY, camera)
+      setCurrentStroke(p => [...p, [wx, wy, e.pressure]]) 
     } else if (activeTool === 'move' && lastPointer) {
       const dx = e.clientX - lastPointer[0]
       const dy = e.clientY - lastPointer[1]
@@ -137,7 +138,7 @@ export function useBoardEvents() {
       } else if (draggingNode?.type === 'stroke') {
         setStrokes(p => p.map((s, idx) => idx === draggingNode.id ? s.map(pt => [pt[0] + dwx, pt[1] + dwy, pt[2]] as Point) : s))
       } else if (isDragging) {
-        setCamera(p => ({ ...p, x: p.x + dx, y: p.y + dy }))
+        setCamera(p => panCamera(p, dx, dy))
       }
       setLastPointer([e.clientX, e.clientY])
     }
@@ -165,17 +166,13 @@ export function useBoardEvents() {
 
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault()
-    const isW = e.deltaMode !== 0 || (Math.abs(e.deltaY) >= 20 && Math.abs(e.deltaX) < 1)
+    const discrete = isDiscreteWheelEvent(e.deltaMode, e.deltaY, e.deltaX)
     
-    if (e.ctrlKey || e.metaKey || isW) { 
-      const f = Math.pow(1.1, -e.deltaY * (isW ? 0.01 : 0.02))
-      setCamera(p => { 
-        const nz = Math.min(Math.max(p.zoom * f, 0.05), 20)
-        const r = nz / p.zoom
-        return { zoom: nz, x: e.clientX - (e.clientX - p.x) * r, y: e.clientY - (e.clientY - p.y) * r } 
-      }) 
+    if (e.ctrlKey || e.metaKey || discrete) {
+      const factor = wheelDeltaToZoomFactor(e.deltaY, discrete)
+      setCamera(p => zoomAtPoint(p, factor, e.clientX, e.clientY))
     } else {
-      setCamera(p => ({ ...p, x: p.x - e.deltaX, y: p.y - e.deltaY }))
+      setCamera(p => panCamera(p, -e.deltaX, -e.deltaY))
     }
   }, [setCamera])
 
@@ -185,8 +182,7 @@ export function useBoardEvents() {
       reader.onload = (ev) => { 
         const img = new Image()
         img.onload = () => { 
-          let w = img.width, h = img.height
-          if (w > 800) { h = h * (800 / w); w = 800 }
+          const { w, h } = fitImageDimensions(img.width, img.height, 800)
           
           setImages(p => [
             ...p, 

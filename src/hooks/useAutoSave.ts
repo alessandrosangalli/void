@@ -67,7 +67,7 @@ export function useAutoSave({
         state: boardState,
         folderId: activeBoard.parentId
       })
-    }, 2500)
+    }, import.meta.env.MODE === 'test' ? 10 : 2500)
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
