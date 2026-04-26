@@ -4,12 +4,33 @@ const CLIENT_ID = env.VITE_GOOGLE_CLIENT_ID
 const API_KEY = env.VITE_GOOGLE_API_KEY
 const USE_FAKE = env.VITE_USE_FAKE_DRIVE
 
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'
+const DISCOVERY_DOC =
+  'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'
 const SCOPES = 'https://www.googleapis.com/auth/drive.file'
 
-let tokenClient: any
+let tokenClient: ReturnType<
+  typeof window.google.accounts.oauth2.initTokenClient
+> | null = null
 let gapiInited = false
 let gisInited = false
+
+/** Returns the current access token or throws if not authenticated. */
+const getAccessToken = (): string => {
+  const token = window.gapi.client.getToken()
+  if (!token) throw new Error('Not authenticated')
+  return token.access_token
+}
+
+/** Returns auth headers for Google Drive API fetch calls. */
+const authHeaders = (): Headers =>
+  new Headers({ Authorization: `Bearer ${getAccessToken()}` })
+
+/** Returns auth headers with JSON content type. */
+const authJsonHeaders = (): Headers =>
+  new Headers({
+    Authorization: `Bearer ${getAccessToken()}`,
+    'Content-Type': 'application/json',
+  })
 
 // --- FAKE DRIVE IMPLEMENTATION ---
 const FAKE_STORAGE_KEY = 'void_fake_drive_v1'
@@ -47,13 +68,10 @@ export const initDriveApi = (onReady: () => void) => {
   }
 
   const checkGapi = setInterval(() => {
-    // @ts-ignore
     if (window.gapi && window.google) {
       clearInterval(checkGapi)
-      
-      // @ts-ignore
+
       window.gapi.load('client', async () => {
-        // @ts-ignore
         await window.gapi.client.init({
           apiKey: API_KEY,
           discoveryDocs: [DISCOVERY_DOC],
@@ -62,11 +80,10 @@ export const initDriveApi = (onReady: () => void) => {
         maybeReady()
       })
 
-      // @ts-ignore
       tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: '' // Defined later
+        callback: '', // Defined later
       })
       gisInited = true
       maybeReady()
@@ -82,7 +99,6 @@ export const initDriveApi = (onReady: () => void) => {
 
 export const checkIsAuthenticated = () => {
   if (USE_FAKE) return true
-  // @ts-ignore
   return window.gapi?.client?.getToken() !== null
 }
 
@@ -91,18 +107,20 @@ export const loginToDrive = (onSuccess: () => void) => {
     onSuccess()
     return
   }
-  tokenClient.callback = (resp: any) => {
+  if (!tokenClient) return
+
+  tokenClient.callback = (resp: { error?: string }) => {
     if (resp.error !== undefined) {
       console.error(resp)
       return
     }
     onSuccess()
   }
-  // @ts-ignore
+
   if (window.gapi.client.getToken() === null) {
-    tokenClient.requestAccessToken({prompt: 'consent'})
+    tokenClient.requestAccessToken({ prompt: 'consent' })
   } else {
-    tokenClient.requestAccessToken({prompt: ''})
+    tokenClient.requestAccessToken({ prompt: '' })
   }
 }
 
@@ -122,37 +140,41 @@ export type DriveFile = {
 
 export const listFilesAndFolders = async (parentId: string = 'root') => {
   if (USE_FAKE) {
-    const files = getFakeData().filter(f => f.parentId === parentId && !f.trashed)
-    return files.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType }))
+    const files = getFakeData().filter(
+      (f) => f.parentId === parentId && !f.trashed,
+    )
+    return files.map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType }))
   }
 
   return new Promise<DriveFile[]>((resolve, reject) => {
     authenticateAndRun(async () => {
       try {
-        // @ts-ignore
         const response = await window.gapi.client.drive.files.list({
           q: `'${parentId}' in parents and trashed=false and (mimeType='application/vnd.google-apps.folder' or mimeType='application/json')`,
           fields: 'files(id, name, mimeType)',
           spaces: 'drive',
-          orderBy: 'folder, name'
+          orderBy: 'folder, name',
         })
         resolve(response.result.files || [])
-      } catch (e) {
-        console.error(e)
-        reject(e)
+      } catch (error) {
+        console.error(error)
+        reject(error)
       }
     })
   })
 }
 
-export const createFolder = async (folderName: string, parentId: string = 'root') => {
+export const createFolder = async (
+  folderName: string,
+  parentId: string = 'root',
+) => {
   if (USE_FAKE) {
     const data = getFakeData()
     data.push({
       id: 'folder_' + Math.random().toString(36).substr(2, 9),
       name: folderName,
       mimeType: 'application/vnd.google-apps.folder',
-      parentId
+      parentId,
     })
     saveFakeData(data)
     return
@@ -164,32 +186,33 @@ export const createFolder = async (folderName: string, parentId: string = 'root'
         const metadata = {
           name: folderName,
           mimeType: 'application/vnd.google-apps.folder',
-          parents: [parentId]
+          parents: [parentId],
         }
         await fetch('https://www.googleapis.com/drive/v3/files', {
           method: 'POST',
-          // @ts-ignore
-          headers: new Headers({ 
-            // @ts-ignore
-            'Authorization': 'Bearer ' + window.gapi.client.getToken().access_token,
-            'Content-Type': 'application/json'
-          }),
+          headers: authJsonHeaders(),
           body: JSON.stringify(metadata),
         })
         resolve()
-      } catch (e) {
-        console.error(e)
-        reject(e)
+      } catch (error) {
+        console.error(error)
+        reject(error)
       }
     })
   })
 }
 
-export const saveBoardToDrive = async (fileName: string, data: any, parentId: string = 'root') => {
+export const saveBoardToDrive = async <T extends object>(
+  fileName: string,
+  data: T,
+  parentId: string = 'root',
+) => {
   if (USE_FAKE) {
     const allData = getFakeData()
-    const existingIndex = allData.findIndex(f => f.name === fileName && f.parentId === parentId && !f.trashed)
-    
+    const existingIndex = allData.findIndex(
+      (f) => f.name === fileName && f.parentId === parentId && !f.trashed,
+    )
+
     if (existingIndex > -1) {
       allData[existingIndex].content = JSON.stringify(data)
     } else {
@@ -198,7 +221,7 @@ export const saveBoardToDrive = async (fileName: string, data: any, parentId: st
         name: fileName,
         mimeType: 'application/json',
         parentId,
-        content: JSON.stringify(data)
+        content: JSON.stringify(data),
       })
     }
     saveFakeData(allData)
@@ -210,8 +233,7 @@ export const saveBoardToDrive = async (fileName: string, data: any, parentId: st
       try {
         const fileContent = JSON.stringify(data)
         const file = new Blob([fileContent], { type: 'application/json' })
-        
-        // @ts-ignore
+
         const searchRes = await window.gapi.client.drive.files.list({
           q: `name='${fileName}' and '${parentId}' in parents and mimeType='application/json' and trashed=false`,
           spaces: 'drive',
@@ -221,33 +243,47 @@ export const saveBoardToDrive = async (fileName: string, data: any, parentId: st
         if (files && files.length > 0) {
           const metadata = { name: fileName, mimeType: 'application/json' }
           const form = new FormData()
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
-          form.append('file', file)
-          
-          const fileId = files[0].id
-          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
-            method: 'PATCH',
-            // @ts-ignore
-            headers: new Headers({ 'Authorization': 'Bearer ' + window.gapi.client.getToken().access_token }),
-            body: form,
-          })
-        } else {
-          const metadata = { name: fileName, mimeType: 'application/json', parents: [parentId] }
-          const form = new FormData()
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+          form.append(
+            'metadata',
+            new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
+          )
           form.append('file', file)
 
-          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            // @ts-ignore
-            headers: new Headers({ 'Authorization': 'Bearer ' + window.gapi.client.getToken().access_token }),
-            body: form,
-          })
+          const fileId = files[0].id
+          await fetch(
+            `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,
+            {
+              method: 'PATCH',
+              headers: authHeaders(),
+              body: form,
+            },
+          )
+        } else {
+          const metadata = {
+            name: fileName,
+            mimeType: 'application/json',
+            parents: [parentId],
+          }
+          const form = new FormData()
+          form.append(
+            'metadata',
+            new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
+          )
+          form.append('file', file)
+
+          await fetch(
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+            {
+              method: 'POST',
+              headers: authHeaders(),
+              body: form,
+            },
+          )
         }
         resolve()
-      } catch (e) {
-        console.error(e)
-        reject(e)
+      } catch (error) {
+        console.error(error)
+        reject(error)
       }
     })
   })
@@ -255,22 +291,21 @@ export const saveBoardToDrive = async (fileName: string, data: any, parentId: st
 
 export const loadBoardFromDriveId = async (fileId: string) => {
   if (USE_FAKE) {
-    const file = getFakeData().find(f => f.id === fileId)
+    const file = getFakeData().find((f) => f.id === fileId)
     return file ? JSON.parse(file.content || '{}') : {}
   }
 
-  return new Promise<any>((resolve, reject) => {
+  return new Promise<Record<string, unknown>>((resolve, reject) => {
     authenticateAndRun(async () => {
       try {
-        // @ts-ignore
         const fileRes = await window.gapi.client.drive.files.get({
           fileId: fileId,
-          alt: 'media'
+          alt: 'media',
         })
         resolve(fileRes.result)
-      } catch (e) {
-        console.error(e)
-        reject(e)
+      } catch (error) {
+        console.error(error)
+        reject(error)
       }
     })
   })
@@ -279,7 +314,7 @@ export const loadBoardFromDriveId = async (fileId: string) => {
 export const deleteFile = async (fileId: string) => {
   if (USE_FAKE) {
     const data = getFakeData()
-    const index = data.findIndex(f => f.id === fileId)
+    const index = data.findIndex((f) => f.id === fileId)
     if (index > -1) {
       data[index].trashed = true
       saveFakeData(data)
@@ -292,27 +327,26 @@ export const deleteFile = async (fileId: string) => {
       try {
         await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
           method: 'PATCH',
-          // @ts-ignore
-          headers: new Headers({ 
-            // @ts-ignore
-            'Authorization': 'Bearer ' + window.gapi.client.getToken().access_token,
-            'Content-Type': 'application/json'
-          }),
+          headers: authJsonHeaders(),
           body: JSON.stringify({ trashed: true }),
         })
         resolve()
-      } catch (e) {
-        console.error(e)
-        reject(e)
+      } catch (error) {
+        console.error(error)
+        reject(error)
       }
     })
   })
 }
 
-export const moveFile = async (fileId: string, currentParentId: string, newParentId: string) => {
+export const moveFile = async (
+  fileId: string,
+  currentParentId: string,
+  newParentId: string,
+) => {
   if (USE_FAKE) {
     const data = getFakeData()
-    const index = data.findIndex(f => f.id === fileId)
+    const index = data.findIndex((f) => f.id === fileId)
     if (index > -1) {
       data[index].parentId = newParentId
       saveFakeData(data)
@@ -323,18 +357,17 @@ export const moveFile = async (fileId: string, currentParentId: string, newParen
   return new Promise<void>((resolve, reject) => {
     authenticateAndRun(async () => {
       try {
-        await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${newParentId}&removeParents=${currentParentId}`, {
-          method: 'PATCH',
-          // @ts-ignore
-          headers: new Headers({ 
-            // @ts-ignore
-            'Authorization': 'Bearer ' + window.gapi.client.getToken().access_token
-          })
-        })
+        await fetch(
+          `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${newParentId}&removeParents=${currentParentId}`,
+          {
+            method: 'PATCH',
+            headers: authHeaders(),
+          },
+        )
         resolve()
-      } catch (e) {
-        console.error(e)
-        reject(e)
+      } catch (error) {
+        console.error(error)
+        reject(error)
       }
     })
   })

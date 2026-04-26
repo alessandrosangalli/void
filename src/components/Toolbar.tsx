@@ -1,36 +1,36 @@
 import { useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
-import { 
-  activeToolAtom, 
-  explorerStateAtom, 
-  activeBoardAtom, 
-  strokesAtom, 
-  textsAtom, 
-  imagesAtom, 
-  cameraAtom, 
-  syncStatusAtom 
+import {
+  activeToolAtom,
+  explorerStateAtom,
+  activeBoardAtom,
+  strokesAtom,
+  textsAtom,
+  imagesAtom,
+  cameraAtom,
+  syncStatusAtom,
 } from '../store'
 import type { ToolType } from '../store'
 import { saveBoardToDrive } from '../drive'
-import { 
-  MousePointer2, 
-  Pencil, 
-  Eraser, 
-  Type, 
-  Image as ImageIcon, 
-  Folder, 
-  Plus, 
-  Minus, 
-  Check, 
-  AlertCircle
+import {
+  MousePointer2,
+  Pencil,
+  Eraser,
+  Type,
+  Image as ImageIcon,
+  Folder,
+  Plus,
+  Minus,
+  Check,
+  AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipTrigger 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -40,7 +40,7 @@ export function Toolbar() {
   const [activeBoard, setActiveBoard] = useAtom(activeBoardAtom)
   const syncStatus = useAtomValue(syncStatusAtom)
   const [camera, setCamera] = useAtom(cameraAtom)
-  
+
   const strokes = useAtomValue(strokesAtom)
   const texts = useAtomValue(textsAtom)
   const images = useAtomValue(imagesAtom)
@@ -48,7 +48,12 @@ export function Toolbar() {
   const [isNaming, setIsNaming] = useState(false)
   const [tempName, setTempName] = useState('')
 
-  const tools: { id: ToolType | 'image'; label: string; shortcut?: string; icon: any }[] = [
+  const tools: {
+    id: ToolType | 'image'
+    label: string
+    shortcut?: string
+    icon: typeof MousePointer2
+  }[] = [
     { id: 'move', label: 'Mover', shortcut: 'Q', icon: MousePointer2 },
     { id: 'draw', label: 'Desenhar', shortcut: 'W', icon: Pencil },
     { id: 'eraser', label: 'Apagar', shortcut: 'E', icon: Eraser },
@@ -74,14 +79,14 @@ export function Toolbar() {
     const centerX = window.innerWidth / 2
     const centerY = window.innerHeight / 2
 
-    setCamera(prev => {
+    setCamera((prev) => {
       if (direction === 'reset') return { zoom: 1, x: 0, y: 0 }
       const nextZoom = Math.min(Math.max(prev.zoom * factor, 0.05), 20)
       const ratio = nextZoom / prev.zoom
       return {
         zoom: nextZoom,
         x: centerX - (centerX - prev.x) * ratio,
-        y: centerY - (centerY - prev.y) * ratio
+        y: centerY - (centerY - prev.y) * ratio,
       }
     })
   }
@@ -121,29 +126,43 @@ export function Toolbar() {
 
   return (
     <div className="fixed bottom-8 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-3xl border border-black/5 bg-white p-2.5 shadow-2xl z-[1000] max-w-[95vw] overflow-x-auto no-scrollbar backdrop-blur-sm bg-white/90">
-      
       {/* Tools */}
       <div className="flex gap-1">
         {tools.map((tool) => (
           <Tooltip key={tool.id}>
-            <TooltipTrigger 
+            <TooltipTrigger
               render={
                 <Button
-                  variant={activeTool === tool.id ? "default" : "ghost"}
+                  variant={activeTool === tool.id ? 'default' : 'ghost'}
                   size="icon"
                   className={cn(
-                    "relative h-10 w-10 rounded-xl transition-all",
-                    activeTool === tool.id ? "shadow-lg scale-105" : "text-muted-foreground hover:bg-muted"
+                    'relative h-10 w-10 rounded-xl transition-all',
+                    activeTool === tool.id
+                      ? 'shadow-lg scale-105'
+                      : 'text-muted-foreground hover:bg-muted',
                   )}
                   aria-label={tool.label}
-                  onClick={() => tool.id === 'image' ? document.getElementById('image-upload')?.click() : setActiveTool(tool.id as ToolType)}
+                  onClick={() =>
+                    tool.id === 'image'
+                      ? document.getElementById('image-upload')?.click()
+                      : setActiveTool(tool.id as ToolType)
+                  }
                 >
-                  <tool.icon className={cn("h-5 w-5", activeTool === tool.id ? "stroke-[2.5px]" : "stroke-[2px]")} />
+                  <tool.icon
+                    className={cn(
+                      'h-5 w-5',
+                      activeTool === tool.id
+                        ? 'stroke-[2.5px]'
+                        : 'stroke-[2px]',
+                    )}
+                  />
                   {tool.shortcut && (
-                    <span className={cn(
-                      "absolute bottom-1 right-1.5 text-[8px] font-black uppercase transition-opacity",
-                      activeTool === tool.id ? "text-white/50" : "opacity-30"
-                    )}>
+                    <span
+                      className={cn(
+                        'absolute bottom-1 right-1.5 text-[8px] font-black uppercase transition-opacity',
+                        activeTool === tool.id ? 'text-white/50' : 'opacity-30',
+                      )}
+                    >
                       {tool.shortcut}
                     </span>
                   )}
@@ -162,21 +181,26 @@ export function Toolbar() {
       {/* Board Info & Sync */}
       <div className="flex flex-col min-w-[100px] px-1">
         {isNaming ? (
-          <Input 
+          <Input
             autoFocus
             data-testid="board-name-input"
             value={tempName}
-            onChange={e => setTempName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleNameSubmit()}
+            onChange={(e) => setTempName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
             onBlur={handleNameSubmit}
             className="h-7 text-xs font-bold bg-muted/50 border-none px-2 focus-visible:ring-1"
           />
         ) : (
-          <div 
+          <div
             className="text-[13px] font-bold cursor-pointer max-w-[120px] truncate text-foreground hover:opacity-70 transition-opacity"
-            onClick={() => { setTempName(activeBoard?.name.replace('.void','') || ''); setIsNaming(true); }}
+            onClick={() => {
+              setTempName(activeBoard?.name.replace('.void', '') || '')
+              setIsNaming(true)
+            }}
           >
-            {activeBoard ? activeBoard.name.replace('.void', '') : 'Board Sem Título'}
+            {activeBoard
+              ? activeBoard.name.replace('.void', '')
+              : 'Board Sem Título'}
           </div>
         )}
         {renderSyncIndicator()}
@@ -186,17 +210,29 @@ export function Toolbar() {
 
       {/* Zoom Controls */}
       <div className="flex items-center bg-muted/50 rounded-xl p-1 gap-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-background hover:text-foreground" onClick={() => handleZoom('out')} title="Zoom Out">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:bg-background hover:text-foreground"
+          onClick={() => handleZoom('out')}
+          title="Zoom Out"
+        >
           <Minus className="h-4 w-4 stroke-[3]" />
         </Button>
-        <Button 
-          variant="ghost" 
-          className="h-8 px-2 text-[10px] font-black bg-background shadow-sm hover:bg-background" 
+        <Button
+          variant="ghost"
+          className="h-8 px-2 text-[10px] font-black bg-background shadow-sm hover:bg-background"
           onClick={() => handleZoom('reset')}
         >
           {Math.round(camera.zoom * 100)}%
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-background hover:text-foreground" onClick={() => handleZoom('in')} title="Zoom In">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:bg-background hover:text-foreground"
+          onClick={() => handleZoom('in')}
+          title="Zoom In"
+        >
           <Plus className="h-4 w-4 stroke-[3]" />
         </Button>
       </div>
@@ -214,7 +250,7 @@ export function Toolbar() {
           Boards
         </Button>
         <Tooltip>
-          <TooltipTrigger 
+          <TooltipTrigger
             render={
               <Button
                 variant="default"

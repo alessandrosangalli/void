@@ -1,4 +1,4 @@
-import { render, fireEvent, screen, waitFor } from '@testing-library/react'
+import { render, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import App from '../App'
 import { Provider } from 'jotai'
@@ -24,19 +24,31 @@ vi.mock('../drive', () => ({
 
 import { useHydrateAtoms } from 'jotai/utils'
 
-function HydrateAtoms({ initialValues, children }: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function HydrateAtoms({
+  initialValues,
+  children,
+}: {
+  initialValues: any
+  children: React.ReactNode
+}) {
   useHydrateAtoms(initialValues)
   return children
 }
 
-function AppWrapper({ children, initialValues = [] }: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function AppWrapper({
+  children,
+  initialValues = [],
+}: {
+  children: React.ReactNode
+  initialValues?: any
+}) {
   return (
     <QueryClientProvider client={queryClient}>
       <Provider>
         <HydrateAtoms initialValues={initialValues}>
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
+          <TooltipProvider>{children}</TooltipProvider>
         </HydrateAtoms>
       </Provider>
     </QueryClientProvider>
@@ -49,24 +61,42 @@ describe('Canvas Interactions', () => {
   })
 
   it('draws a stroke on the canvas', async () => {
-    const { container } = render(<App />, { 
-      wrapper: ({children}) => (
-        <AppWrapper initialValues={[
-          [isAuthenticatedAtom, true], 
-          [activeToolAtom, 'draw'],
-          [strokesAtom, []]
-        ]}>
+    const { container } = render(<App />, {
+      wrapper: ({ children }) => (
+        <AppWrapper
+          initialValues={[
+            [isAuthenticatedAtom, true],
+            [activeToolAtom, 'draw'],
+            [strokesAtom, []],
+          ]}
+        >
           {children}
         </AppWrapper>
-      )
+      ),
     })
 
     const canvas = container.querySelector('svg')!
 
     // Simulate drawing
-    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 100, buttons: 1, button: 0, pointerId: 1 })
-    fireEvent.pointerMove(canvas, { clientX: 110, clientY: 110, buttons: 1, pointerId: 1 })
-    fireEvent.pointerMove(canvas, { clientX: 120, clientY: 120, buttons: 1, pointerId: 1 })
+    fireEvent.pointerDown(canvas, {
+      clientX: 100,
+      clientY: 100,
+      buttons: 1,
+      button: 0,
+      pointerId: 1,
+    })
+    fireEvent.pointerMove(canvas, {
+      clientX: 110,
+      clientY: 110,
+      buttons: 1,
+      pointerId: 1,
+    })
+    fireEvent.pointerMove(canvas, {
+      clientX: 120,
+      clientY: 120,
+      buttons: 1,
+      pointerId: 1,
+    })
     fireEvent.pointerUp(canvas, { clientX: 120, clientY: 120, pointerId: 1 })
 
     // Verify stroke was added
@@ -77,16 +107,26 @@ describe('Canvas Interactions', () => {
 
   it('erases a stroke when clicking it with the eraser tool', async () => {
     // We need to inject a stroke first
-    const { container } = render(<App />, { 
-      wrapper: ({children}) => (
-        <AppWrapper initialValues={[
-          [isAuthenticatedAtom, true], 
-          [activeToolAtom, 'eraser'],
-          [strokesAtom, [[[100, 100, 0.5], [110, 110, 0.5]]]]
-        ]}>
+    const { container } = render(<App />, {
+      wrapper: ({ children }) => (
+        <AppWrapper
+          initialValues={[
+            [isAuthenticatedAtom, true],
+            [activeToolAtom, 'eraser'],
+            [
+              strokesAtom,
+              [
+                [
+                  [100, 100, 0.5],
+                  [110, 110, 0.5],
+                ],
+              ],
+            ],
+          ]}
+        >
           {children}
         </AppWrapper>
-      )
+      ),
     })
 
     const canvas = container.querySelector('svg')!
@@ -94,8 +134,14 @@ describe('Canvas Interactions', () => {
     expect(paths.length).toBe(1)
 
     // Click the path to erase it
-    fireEvent.pointerDown(paths[0], { clientX: 105, clientY: 105, buttons: 1, button: 0, pointerId: 1 })
-    
+    fireEvent.pointerDown(paths[0], {
+      clientX: 105,
+      clientY: 105,
+      buttons: 1,
+      button: 0,
+      pointerId: 1,
+    })
+
     // Check if it was removed
     await waitFor(() => {
       paths = canvas.querySelectorAll('path')
@@ -104,23 +150,34 @@ describe('Canvas Interactions', () => {
   })
 
   it('pans the camera with right-click drag', async () => {
-    const { container } = render(<App />, { 
-      wrapper: ({children}) => (
+    const { container } = render(<App />, {
+      wrapper: ({ children }) => (
         <AppWrapper initialValues={[[isAuthenticatedAtom, true]]}>
           {children}
         </AppWrapper>
-      )
+      ),
     })
 
     const canvas = container.querySelector('svg')!
     const group = canvas.querySelector('g')!
-    
+
     // Initial transform
     expect(group.getAttribute('transform')).toContain('translate(0, 0)')
 
     // Right-click drag
-    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 100, buttons: 2, button: 2, pointerId: 1 })
-    fireEvent.pointerMove(canvas, { clientX: 150, clientY: 150, buttons: 2, pointerId: 1 })
+    fireEvent.pointerDown(canvas, {
+      clientX: 100,
+      clientY: 100,
+      buttons: 2,
+      button: 2,
+      pointerId: 1,
+    })
+    fireEvent.pointerMove(canvas, {
+      clientX: 150,
+      clientY: 150,
+      buttons: 2,
+      pointerId: 1,
+    })
     fireEvent.pointerUp(canvas, { clientX: 150, clientY: 150, pointerId: 1 })
 
     // Verify camera moved

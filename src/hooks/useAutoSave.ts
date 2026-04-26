@@ -16,18 +16,22 @@ interface BoardState {
 export function useAutoSave({
   boardState,
   activeBoard,
-  isAuthenticated
+  isAuthenticated,
 }: {
   boardState: BoardState
   activeBoard: { id: string; name: string; parentId: string } | null
   isAuthenticated: boolean
 }) {
   const setSyncStatus = useSetAtom(syncStatusAtom)
-  const timerRef = useRef<any>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFirstMount = useRef(true)
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async (data: { fileName: string; state: BoardState; folderId: string }) => {
+    mutationFn: async (data: {
+      fileName: string
+      state: BoardState
+      folderId: string
+    }) => {
       await saveBoardToDrive(data.fileName, data.state, data.folderId)
     },
     onMutate: () => {
@@ -41,7 +45,7 @@ export function useAutoSave({
       toast.error('Erro de conexão ao salvar. O sistema tentará novamente.', {
         id: 'drive-error',
       })
-    }
+    },
   })
 
   useEffect(() => {
@@ -57,17 +61,20 @@ export function useAutoSave({
     }
 
     if (timerRef.current) clearTimeout(timerRef.current)
-    
+
     // Indicate that there are unsaved changes
     setSyncStatus('saving')
 
-    timerRef.current = setTimeout(() => {
-      mutate({
-        fileName: activeBoard.name,
-        state: boardState,
-        folderId: activeBoard.parentId
-      })
-    }, import.meta.env.MODE === 'test' ? 10 : 2500)
+    timerRef.current = setTimeout(
+      () => {
+        mutate({
+          fileName: activeBoard.name,
+          state: boardState,
+          folderId: activeBoard.parentId,
+        })
+      },
+      import.meta.env.MODE === 'test' ? 10 : 2500,
+    )
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)

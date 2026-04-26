@@ -1,9 +1,9 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Toolbar } from '../Toolbar'
 import { Provider } from 'jotai'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { activeToolAtom, syncStatusAtom, activeBoardAtom, cameraAtom } from '../../store'
+import { syncStatusAtom, activeBoardAtom } from '../../store'
 import { useSetAtom } from 'jotai'
 
 // Mock drive module
@@ -11,12 +11,10 @@ vi.mock('../../drive', () => ({
   saveBoardToDrive: vi.fn(),
 }))
 
-function ToolbarTestWrapper({ children, initialValues = [] }: any) {
+function ToolbarTestWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <Provider initialValues={initialValues}>
-      <TooltipProvider>
-        {children}
-      </TooltipProvider>
+    <Provider>
+      <TooltipProvider>{children}</TooltipProvider>
     </Provider>
   )
 }
@@ -29,14 +27,16 @@ describe('Toolbar Component', () => {
   it('renders all tool buttons', () => {
     render(<Toolbar />, { wrapper: ToolbarTestWrapper })
     expect(screen.getByRole('button', { name: /Mover/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Desenhar/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Desenhar/i }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Apagar/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Texto/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Imagem/i })).toBeInTheDocument()
   })
 
   it('displays the current board name or generic title if none', () => {
-    const { rerender } = render(<Toolbar />, { wrapper: ToolbarTestWrapper })
+    render(<Toolbar />, { wrapper: ToolbarTestWrapper })
     expect(screen.getByText('Board Sem Título')).toBeInTheDocument()
 
     const BoardInjector = () => {
@@ -49,14 +49,18 @@ describe('Toolbar Component', () => {
       <ToolbarTestWrapper>
         <BoardInjector />
         <Toolbar />
-      </ToolbarTestWrapper>
+      </ToolbarTestWrapper>,
     )
-    
+
     expect(screen.getByText('MyAwesomeBoard')).toBeInTheDocument()
   })
 
   it('shows correct sync status', () => {
-    const StatusInjector = ({ status }: { status: any }) => {
+    const StatusInjector = ({
+      status,
+    }: {
+      status: 'local' | 'saving' | 'synced' | 'error'
+    }) => {
       const setStatus = useSetAtom(syncStatusAtom)
       setStatus(status)
       return null
@@ -66,7 +70,7 @@ describe('Toolbar Component', () => {
       <ToolbarTestWrapper>
         <StatusInjector status="saving" />
         <Toolbar />
-      </ToolbarTestWrapper>
+      </ToolbarTestWrapper>,
     )
     expect(screen.getByText('Salvando...')).toBeInTheDocument()
     unmount()
@@ -75,7 +79,7 @@ describe('Toolbar Component', () => {
       <ToolbarTestWrapper>
         <StatusInjector status="synced" />
         <Toolbar />
-      </ToolbarTestWrapper>
+      </ToolbarTestWrapper>,
     )
     expect(screen.getByText('Salvo')).toBeInTheDocument()
   })
