@@ -43,7 +43,7 @@ describe('useAutoSave', () => {
 
   const mockActiveBoard = { id: '1', name: 'test.void', parentId: 'root' }
 
-  it('sets status to local if not authenticated or no active board', () => {
+  it('sets status to local if not authenticated or no active board', async () => {
     let currentStatus = ''
     renderHook(
       () => {
@@ -53,12 +53,15 @@ describe('useAutoSave', () => {
           boardState: mockBoardState,
           activeBoard: null,
           isAuthenticated: false,
+          isLocalMode: false,
         })
       },
       { wrapper: TestWrapper },
     )
 
-    expect(currentStatus).toBe('local')
+    await waitFor(() => {
+      expect(currentStatus).toBe('local')
+    })
   })
 
   it('debounces save operations by 2500ms', async () => {
@@ -74,6 +77,7 @@ describe('useAutoSave', () => {
           boardState: mockBoardState,
           activeBoard: mockActiveBoard,
           isAuthenticated: true,
+          isLocalMode: false,
         },
       },
     )
@@ -89,6 +93,7 @@ describe('useAutoSave', () => {
       },
       activeBoard: mockActiveBoard,
       isAuthenticated: true,
+      isLocalMode: false,
     })
 
     // Trigger another update (user draws more before timer finishes)
@@ -102,6 +107,7 @@ describe('useAutoSave', () => {
       },
       activeBoard: mockActiveBoard,
       isAuthenticated: true,
+      isLocalMode: false,
     })
 
     // Ensure React Query executes the mutation
@@ -140,6 +146,7 @@ describe('useAutoSave', () => {
           boardState: mockBoardState,
           activeBoard: mockActiveBoard,
           isAuthenticated: true,
+          isLocalMode: false,
         },
       },
     )
@@ -152,6 +159,7 @@ describe('useAutoSave', () => {
       },
       activeBoard: mockActiveBoard,
       isAuthenticated: true,
+      isLocalMode: false,
     })
 
     // Wait for mutation to fail and status to update
@@ -160,5 +168,49 @@ describe('useAutoSave', () => {
     })
 
     expect(toast.error).toHaveBeenCalled()
+  })
+
+  it('saves to localStorage in local mode', async () => {
+    renderHook(
+      () => {
+        useAutoSave({
+          boardState: { ...mockBoardState, strokes: [[[1, 1, 1] as Point]] },
+          activeBoard: null,
+          isAuthenticated: false,
+          isLocalMode: true,
+        })
+      },
+      { wrapper: TestWrapper },
+    )
+
+    await waitFor(() => {
+      const saved = localStorage.getItem('void-local-board')
+      expect(saved).toBeTruthy()
+      expect(JSON.parse(saved!).strokes).toHaveLength(1)
+    })
+  })
+
+  it('auto-promotes to Drive board if authenticated but no board active and has content', async () => {
+    renderHook(
+      () => {
+        const { status } = useSyncStatusTest()
+        useAutoSave({
+          boardState: { ...mockBoardState, strokes: [[[1, 1, 1] as Point]] },
+          activeBoard: null,
+          isAuthenticated: true,
+          isLocalMode: false,
+        })
+        return status
+      },
+      { wrapper: TestWrapper },
+    )
+
+    await waitFor(() => {
+      expect(driveAPI.saveBoardToDrive).toHaveBeenCalledWith(
+        'Meu Board.void',
+        expect.any(Object),
+        'root',
+      )
+    })
   })
 })

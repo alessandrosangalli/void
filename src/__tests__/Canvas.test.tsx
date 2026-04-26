@@ -24,11 +24,11 @@ vi.mock('../drive', () => ({
 
 import { useHydrateAtoms } from 'jotai/utils'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function HydrateAtoms({
   initialValues,
   children,
 }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialValues: any
   children: React.ReactNode
 }) {
@@ -36,12 +36,12 @@ function HydrateAtoms({
   return children
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function AppWrapper({
   children,
   initialValues = [],
 }: {
   children: React.ReactNode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialValues?: any
 }) {
   return (

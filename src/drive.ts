@@ -124,6 +124,15 @@ export const loginToDrive = (onSuccess: () => void) => {
   }
 }
 
+export const logoutFromDrive = () => {
+  if (USE_FAKE) return
+  const token = window.gapi?.client?.getToken()
+  if (token) {
+    window.google.accounts.oauth2.revoke(token.access_token, () => {})
+    window.gapi.client.setToken(null)
+  }
+}
+
 export const authenticateAndRun = (action: () => void) => {
   if (USE_FAKE || checkIsAuthenticated()) {
     action()

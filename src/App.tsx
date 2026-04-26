@@ -1,6 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { useAtom } from 'jotai'
-import { cameraAtom, strokesAtom, textsAtom, imagesAtom, explorerStateAtom, activeBoardAtom, isAuthenticatedAtom } from './store'
+import {
+  cameraAtom,
+  strokesAtom,
+  textsAtom,
+  imagesAtom,
+  explorerStateAtom,
+  activeBoardAtom,
+  isAuthenticatedAtom,
+  isLocalModeAtom,
+} from './store'
 import type { TextNode } from './store'
 import { Toolbar } from './components/Toolbar'
 import { FileExplorer } from './components/FileExplorer'
@@ -10,11 +19,34 @@ import { useBoardEvents } from './hooks/useBoardEvents'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getSvgPathFromStroke } from './lib/utils'
 
-function EditingTextarea({ text, camera, onSave, onComplete }: { text: TextNode, camera: {x:number, y:number, zoom:number}, onSave: (id: string, content: string) => void, onComplete: (id: string) => void }) {
+function EditingTextarea({
+  text,
+  camera,
+  onSave,
+  onComplete,
+}: {
+  text: TextNode
+  camera: { x: number; y: number; zoom: number }
+  onSave: (id: string, content: string) => void
+  onComplete: (id: string) => void
+}) {
   const ref = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { ref.current?.focus() }, [])
+  useEffect(() => {
+    ref.current?.focus()
+  }, [])
   return (
-    <div style={{ position: 'fixed', left: text.x * camera.zoom + camera.x - 12, top: text.y * camera.zoom + camera.y - 12, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '12px', animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+    <div
+      style={{
+        position: 'fixed',
+        left: text.x * camera.zoom + camera.x - 12,
+        top: text.y * camera.zoom + camera.y - 12,
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
       <style>{`
         @keyframes popIn { from { transform: scale(0.95) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
         .text-editor-container { background: white; border-radius: 16px; padding: 6px; box-shadow: 0 20px 50px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05); display: flex; flexDirection: column; gap: 8px; }
@@ -24,9 +56,35 @@ function EditingTextarea({ text, camera, onSave, onComplete }: { text: TextNode,
         .btn-premium-confirm:hover { background: #333; transform: scale(1.02); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
       `}</style>
       <div className="text-editor-container">
-        <textarea ref={ref} className="editor-textarea" style={{ fontSize: `${24 * camera.zoom}px` }} value={text.content} onChange={(e) => onSave(text.id, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onComplete(text.id); e.stopPropagation(); }} />
-        <button className="btn-premium-confirm" onClick={() => onComplete(text.id)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirmar
+        <textarea
+          ref={ref}
+          className="editor-textarea"
+          style={{ fontSize: `${24 * camera.zoom}px` }}
+          value={text.content}
+          onChange={(e) => onSave(text.id, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey))
+              onComplete(text.id)
+            e.stopPropagation()
+          }}
+        />
+        <button
+          className="btn-premium-confirm"
+          onClick={() => onComplete(text.id)}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>{' '}
+          Confirmar
         </button>
       </div>
     </div>
@@ -34,13 +92,14 @@ function EditingTextarea({ text, camera, onSave, onComplete }: { text: TextNode,
 }
 
 export default function App() {
-  const [camera] = useAtom(cameraAtom)
-  const [strokes] = useAtom(strokesAtom)
+  const [camera, setCamera] = useAtom(cameraAtom)
+  const [strokes, setStrokes] = useAtom(strokesAtom)
   const [texts, setTexts] = useAtom(textsAtom)
-  const [images] = useAtom(imagesAtom)
+  const [images, setImages] = useAtom(imagesAtom)
   const [explorerState, setExplorerState] = useAtom(explorerStateAtom)
   const [activeBoard] = useAtom(activeBoardAtom)
   const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom)
+  const [isLocalMode] = useAtom(isLocalModeAtom)
 
   const {
     handlePointerDown,
@@ -51,69 +110,191 @@ export default function App() {
     handleNodeInteraction,
     currentStroke,
     cursorStyle,
-    activeTool
+    activeTool,
   } = useBoardEvents()
 
+  const boardState = useMemo(
+    () => ({ strokes, texts, images, camera }),
+    [strokes, texts, images, camera],
+  )
+
   useAutoSave({
-    boardState: { strokes, texts, images, camera },
+    boardState,
     activeBoard,
-    isAuthenticated
+    isAuthenticated,
+    isLocalMode,
   })
 
-  useEffect(() => { initDriveApi(() => { if (checkIsAuthenticated()) setIsAuthenticated(true) }) }, [setIsAuthenticated])
+  useEffect(() => {
+    initDriveApi(() => {
+      if (checkIsAuthenticated()) setIsAuthenticated(true)
+    })
+  }, [setIsAuthenticated])
+
+  useEffect(() => {
+    if (isLocalMode) {
+      const saved = localStorage.getItem('void-local-board')
+      if (saved) {
+        try {
+          const data = JSON.parse(saved)
+          if (data.strokes) setStrokes(data.strokes)
+          if (data.texts) setTexts(data.texts)
+          if (data.images) setImages(data.images)
+          // Camera zoom might be 0 if not saved correctly, so we check
+          if (data.camera && data.camera.zoom > 0) setCamera(data.camera)
+        } catch (e) {
+          console.error('Failed to load local board', e)
+        }
+      }
+    }
+  }, [isLocalMode, setStrokes, setTexts, setImages, setCamera])
 
   const updateText = (id: string, content: string) => {
-    setTexts(prev => prev.map(t => t.id === id ? { ...t, content } : t))
+    setTexts((prev) => prev.map((t) => (t.id === id ? { ...t, content } : t)))
   }
   const completeText = (id: string) => {
-    setTexts(prev => prev.map(t => t.id === id ? { ...t, isEditing: false } : t).filter(t => t.content.trim() !== ''))
+    setTexts((prev) =>
+      prev
+        .map((t) => (t.id === id ? { ...t, isEditing: false } : t))
+        .filter((t) => t.content.trim() !== ''),
+    )
   }
 
-  useEffect(() => { 
-    setTexts(prev => prev.map(t => t.isEditing ? { ...t, isEditing: false } : t).filter(t => t.content.trim() !== '')) 
+  useEffect(() => {
+    setTexts((prev) =>
+      prev
+        .map((t) => (t.isEditing ? { ...t, isEditing: false } : t))
+        .filter((t) => t.content.trim() !== ''),
+    )
   }, [activeTool, setTexts])
 
   return (
     <>
-      {!isAuthenticated && <WelcomeScreen />}
-      <input type="file" id="image-upload" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-      <svg 
-        style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', touchAction: 'none', cursor: cursorStyle, backgroundColor: '#f8f9fa' }} 
-        onPointerDown={handlePointerDown} 
-        onPointerMove={handlePointerMove} 
-        onPointerUp={handlePointerUp} 
-        onPointerCancel={handlePointerUp} 
-        onWheel={handleWheel} 
+      {!isAuthenticated && !isLocalMode && <WelcomeScreen />}
+      <input
+        type="file"
+        id="image-upload"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleImageUpload}
+      />
+      <svg
+        style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100vw',
+          height: '100vh',
+          touchAction: 'none',
+          cursor: cursorStyle,
+          backgroundColor: '#f8f9fa',
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <g transform={`translate(${camera.x}, ${camera.y}) scale(${camera.zoom})`}>
-          {images.map(img => (
-            <image key={img.id} href={img.url} x={img.x} y={img.y} width={img.w} height={img.h} 
-              onPointerDown={(e) => handleNodeInteraction(e, 'image', img.id)} 
-              style={{ pointerEvents: activeTool === 'eraser' || activeTool === 'move' ? 'all' : 'none' }} 
+        <g
+          transform={`translate(${camera.x}, ${camera.y}) scale(${camera.zoom})`}
+        >
+          {images.map((img) => (
+            <image
+              key={img.id}
+              href={img.url}
+              x={img.x}
+              y={img.y}
+              width={img.w}
+              height={img.h}
+              onPointerDown={(e) => handleNodeInteraction(e, 'image', img.id)}
+              style={{
+                pointerEvents:
+                  activeTool === 'eraser' || activeTool === 'move'
+                    ? 'all'
+                    : 'none',
+              }}
             />
           ))}
           {strokes.map((s, i) => (
-            <path key={i} d={getSvgPathFromStroke(s)} fill="#111" 
-              onPointerDown={(e) => handleNodeInteraction(e, 'stroke', i)} 
-              style={{ pointerEvents: activeTool === 'eraser' || activeTool === 'move' ? 'all' : 'none' }} 
+            <path
+              key={i}
+              d={getSvgPathFromStroke(s)}
+              fill="#111"
+              onPointerDown={(e) => handleNodeInteraction(e, 'stroke', i)}
+              style={{
+                pointerEvents:
+                  activeTool === 'eraser' || activeTool === 'move'
+                    ? 'all'
+                    : 'none',
+              }}
             />
           ))}
-          {currentStroke.length > 0 && <path d={getSvgPathFromStroke(currentStroke)} fill="#111" style={{ pointerEvents: 'none' }} />}
-          {texts.map(t => !t.isEditing && ( 
-            <text key={t.id} x={t.x} y={t.y + 24} 
-              style={{ fontFamily: 'sans-serif', fontSize: '24px', fill: '#111', userSelect: 'none', WebkitUserSelect: 'none', cursor: activeTool === 'text' ? 'text' : activeTool === 'move' ? 'grab' : activeTool === 'eraser' ? 'cell' : 'default', pointerEvents: activeTool === 'text' || activeTool === 'move' || activeTool === 'eraser' ? 'all' : 'none' }} 
-              onDoubleClick={() => setTexts(p => p.map(x => x.id === t.id ? { ...x, isEditing: true } : x))} 
-              onPointerDown={(e) => handleNodeInteraction(e, 'text', t.id)}
-            >
-              {t.content}
-            </text> 
-          ))}
+          {currentStroke.length > 0 && (
+            <path
+              d={getSvgPathFromStroke(currentStroke)}
+              fill="#111"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+          {texts.map(
+            (t) =>
+              !t.isEditing && (
+                <text
+                  key={t.id}
+                  x={t.x}
+                  y={t.y + 24}
+                  style={{
+                    fontFamily: 'sans-serif',
+                    fontSize: '24px',
+                    fill: '#111',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    cursor:
+                      activeTool === 'text'
+                        ? 'text'
+                        : activeTool === 'move'
+                          ? 'grab'
+                          : activeTool === 'eraser'
+                            ? 'cell'
+                            : 'default',
+                    pointerEvents:
+                      activeTool === 'text' ||
+                      activeTool === 'move' ||
+                      activeTool === 'eraser'
+                        ? 'all'
+                        : 'none',
+                  }}
+                  onDoubleClick={() =>
+                    setTexts((p) =>
+                      p.map((x) =>
+                        x.id === t.id ? { ...x, isEditing: true } : x,
+                      ),
+                    )
+                  }
+                  onPointerDown={(e) => handleNodeInteraction(e, 'text', t.id)}
+                >
+                  {t.content}
+                </text>
+              ),
+          )}
         </g>
       </svg>
-      {texts.filter(t => t.isEditing).map(t => ( <EditingTextarea key={t.id} text={t} camera={camera} onSave={updateText} onComplete={completeText} /> ))}
-      {isAuthenticated && <Toolbar />}
-      <FileExplorer isOpen={explorerState.isOpen} onClose={() => setExplorerState(s => ({ ...s, isOpen: false }))} />
+      {texts
+        .filter((t) => t.isEditing)
+        .map((t) => (
+          <EditingTextarea
+            key={t.id}
+            text={t}
+            camera={camera}
+            onSave={updateText}
+            onComplete={completeText}
+          />
+        ))}
+      {(isAuthenticated || isLocalMode) && <Toolbar />}
+      <FileExplorer
+        isOpen={explorerState.isOpen}
+        onClose={() => setExplorerState((s) => ({ ...s, isOpen: false }))}
+      />
     </>
   )
 }

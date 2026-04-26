@@ -172,24 +172,27 @@ export function FileExplorer({ isOpen, onClose }: FileExplorerProps) {
   }
 
   const openBoard = async (board: DriveFile) => {
-    // We don't have a local loading state anymore, we can use a toast or just wait
     const toastId = toast.loading('Carregando board...')
     try {
       const data = await loadBoardFromDriveId(board.id)
-      if (data) {
-        setStrokes(data.strokes || [])
-        setTexts(data.texts || [])
-        setImages(data.images || [])
-        setCamera(data.camera || { x: 0, y: 0, zoom: 1 })
-        setActiveBoard({
-          id: board.id,
-          name: board.name,
-          parentId: currentFolder.id,
-        })
-        toast.dismiss(toastId)
-        onClose()
-      }
-    } catch {
+      if (!data) throw new Error('Dados não encontrados')
+
+      // Set state
+      setStrokes(data.strokes || [])
+      setTexts(data.texts || [])
+      setImages(data.images || [])
+      setCamera(data.camera || { x: 0, y: 0, zoom: 1 })
+
+      setActiveBoard({
+        id: board.id,
+        name: board.name,
+        parentId: currentFolder.id,
+      })
+
+      toast.success('Board carregado!', { id: toastId })
+      onClose()
+    } catch (error) {
+      console.error(error)
       toast.error('Falha ao carregar board', { id: toastId })
     }
   }

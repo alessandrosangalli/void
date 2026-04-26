@@ -81,6 +81,6 @@ describe('Toolbar Component', () => {
         <Toolbar />
       </ToolbarTestWrapper>,
     )
-    expect(screen.getByText('Salvo')).toBeInTheDocument()
+    expect(screen.getByText('Sincronizado')).toBeInTheDocument()
   })
 })

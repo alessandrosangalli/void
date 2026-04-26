@@ -8,6 +8,7 @@
 interface GapiClient {
   init(config: { apiKey: string; discoveryDocs: string[] }): Promise<void>
   getToken(): { access_token: string } | null
+  setToken(token: { access_token: string } | null): void
   drive: {
     files: {
       list(params: Record<string, any>): Promise<{ result: { files: any[] } }>
@@ -30,6 +31,7 @@ interface GoogleAccountsOAuth2 {
     callback: string | ((resp: { error?: string }) => void)
     requestAccessToken(config: { prompt: string }): void
   }
+  revoke(token: string, callback: () => void): void
 }
 
 declare global {

@@ -9,9 +9,11 @@ import {
   imagesAtom,
   cameraAtom,
   syncStatusAtom,
+  isLocalModeAtom,
+  isAuthenticatedAtom,
 } from '../store'
 import type { ToolType } from '../store'
-import { saveBoardToDrive } from '../drive'
+import { saveBoardToDrive, logoutFromDrive } from '../drive'
 import {
   MousePointer2,
   Pencil,
@@ -21,8 +23,9 @@ import {
   Folder,
   Plus,
   Minus,
-  Check,
   AlertCircle,
+  LogOut,
+  Cloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +43,15 @@ export function Toolbar() {
   const [activeBoard, setActiveBoard] = useAtom(activeBoardAtom)
   const syncStatus = useAtomValue(syncStatusAtom)
   const [camera, setCamera] = useAtom(cameraAtom)
+  const [isLocalMode, setIsLocalMode] = useAtom(isLocalModeAtom)
+  const [, setIsAuthenticated] = useAtom(isAuthenticatedAtom)
+
+  const handleLogout = () => {
+    logoutFromDrive()
+    setIsAuthenticated(false)
+    setIsLocalMode(false)
+    setActiveBoard(null)
+  }
 
   const strokes = useAtomValue(strokesAtom)
   const texts = useAtomValue(textsAtom)
@@ -102,23 +114,24 @@ export function Toolbar() {
         )
       case 'synced':
         return (
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600">
-            <Check className="h-3 w-3 stroke-[3]" />
-            Salvo
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600">
+            <Cloud className="h-3 w-3 stroke-[3]" />
+            Sincronizado
           </div>
         )
       case 'error':
         return (
           <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-500">
             <AlertCircle className="h-3 w-3" />
-            Erro
+            Erro de Sincronia
           </div>
         )
+      case 'local':
       default:
         return (
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground/60">
-            <div className="h-1.5 w-1.5 rounded-full bg-muted" />
-            Local
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+            <div className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+            Apenas Local
           </div>
         )
     }
@@ -244,6 +257,7 @@ export function Toolbar() {
         <Button
           variant="secondary"
           className="h-10 rounded-xl font-bold text-xs gap-2 px-4 hover:shadow-md transition-all"
+          disabled={isLocalMode}
           onClick={() => setExplorerState({ isOpen: true, mode: 'load' })}
         >
           <Folder className="h-4 w-4 stroke-[2.5]" />
@@ -256,6 +270,7 @@ export function Toolbar() {
                 variant="default"
                 size="icon"
                 className="h-10 w-10 rounded-xl shadow-lg hover:scale-105 transition-transform"
+                disabled={isLocalMode}
                 onClick={() => setExplorerState({ isOpen: true, mode: 'load' })}
               >
                 <Plus className="h-5 w-5 stroke-[3]" />
@@ -264,6 +279,26 @@ export function Toolbar() {
           />
           <TooltipContent side="top" className="font-bold text-xs">
             Novo Board
+          </TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="h-6" />
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-xl text-muted-foreground hover:text-red-500 transition-colors"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5 stroke-[2.5]" />
+              </Button>
+            }
+          />
+          <TooltipContent side="top" className="font-bold text-xs">
+            Sair
           </TooltipContent>
         </Tooltip>
       </div>
