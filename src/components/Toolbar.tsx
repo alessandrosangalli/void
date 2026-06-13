@@ -26,7 +26,9 @@ import {
   AlertCircle,
   LogOut,
   Cloud,
+  HelpCircle,
 } from 'lucide-react'
+import { HelpDialog } from './HelpDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -59,6 +61,7 @@ export function Toolbar() {
 
   const [isNaming, setIsNaming] = useState(false)
   const [tempName, setTempName] = useState('')
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
 
   const tools: {
     id: ToolType | 'image'
@@ -290,6 +293,24 @@ export function Toolbar() {
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-10 w-10 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setIsHelpOpen(true)}
+              >
+                <HelpCircle className="h-5 w-5 stroke-[2.5]" />
+              </Button>
+            }
+          />
+          <TooltipContent side="top" className="font-bold text-xs">
+            Ajuda
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-10 w-10 rounded-xl text-muted-foreground hover:text-red-500 transition-colors"
                 onClick={handleLogout}
               >
@@ -302,6 +323,8 @@ export function Toolbar() {
           </TooltipContent>
         </Tooltip>
       </div>
+
+      <HelpDialog isOpen={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>
   )
 }

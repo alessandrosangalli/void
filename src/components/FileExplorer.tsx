@@ -16,6 +16,7 @@ import {
   imagesAtom,
   cameraAtom,
   activeBoardAtom,
+  applyTextNodeDefaults,
 } from '../store'
 import { toast } from 'sonner'
 import {
@@ -179,7 +180,7 @@ export function FileExplorer({ isOpen, onClose }: FileExplorerProps) {
 
       // Set state
       setStrokes(data.strokes || [])
-      setTexts(data.texts || [])
+      setTexts((data.texts || []).map(applyTextNodeDefaults))
       setImages(data.images || [])
       setCamera(data.camera || { x: 0, y: 0, zoom: 1 })
 
