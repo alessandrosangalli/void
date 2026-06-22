@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react'
 import { EditorContent } from '@tiptap/react'
 import { useTipTapEditor } from '../hooks/useTipTapEditor'
-import type { TextNode } from '../store'
+import { type TextNode, getCardTheme } from '../store'
 import type { Editor } from '@tiptap/react'
 
 export function CardNode({
@@ -33,7 +33,12 @@ export function CardNode({
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const resizingRef = useRef(false)
-  const resizeStartRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  const resizeStartRef = useRef<{
+    x: number
+    y: number
+    w: number
+    h: number
+  } | null>(null)
 
   const editor = useTipTapEditor({
     content: node.content || '<p></p>',
@@ -122,6 +127,12 @@ export function CardNode({
   const fontSize = 16 * camera.zoom
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('a')) {
+      e.stopPropagation()
+      return
+    }
+
     if (node.isEditing) {
       // Don't propagate when editing - let TipTap handle it
       e.stopPropagation()
@@ -142,6 +153,11 @@ export function CardNode({
   }
 
   const handleDoubleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('a')) {
+      e.stopPropagation()
+      return
+    }
     e.stopPropagation()
     if (activeTool === 'text' || activeTool === 'move') {
       onStartEditing(node.id)
@@ -169,6 +185,8 @@ export function CardNode({
           ? 'text'
           : 'default'
 
+  const theme = getCardTheme(node.cardColor)
+
   return (
     <div
       ref={cardRef}
@@ -188,86 +206,96 @@ export function CardNode({
       onKeyDown={handleKeyDown}
     >
       <style>{`
-        .card-node-container {
-          width: 100%;
-          height: 100%;
-          border-radius: ${12 * camera.zoom}px;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          transition: box-shadow 0.2s;
-          position: relative;
-        }
-        .card-node-container:hover .card-resize-handle {
-          opacity: 1;
-        }
-        .card-node-container .ProseMirror {
-          outline: none;
-          height: 100%;
-          overflow-y: auto;
-          padding: ${12 * camera.zoom}px ${16 * camera.zoom}px;
-          font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-          font-size: ${fontSize}px;
-          line-height: 1.5;
-          color: #111;
-          word-break: break-word;
-        }
-        .card-node-container .ProseMirror p {
-          margin: 0 0 ${4 * camera.zoom}px 0;
-        }
-        .card-node-container .ProseMirror ul {
-          padding-left: ${20 * camera.zoom}px;
-          margin: ${4 * camera.zoom}px 0;
-        }
-        .card-node-container .ProseMirror li {
-          margin: ${2 * camera.zoom}px 0;
-        }
-        .card-node-content {
-          width: 100%;
-          height: 100%;
-          overflow-y: auto;
-          padding: ${12 * camera.zoom}px ${16 * camera.zoom}px;
-          font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-          font-size: ${fontSize}px;
-          line-height: 1.5;
-          color: #111;
-          word-break: break-word;
-        }
-        .card-node-content p { margin: 0 0 ${4 * camera.zoom}px 0; }
-        .card-node-content ul { padding-left: ${20 * camera.zoom}px; margin: ${4 * camera.zoom}px 0; }
-        .card-resize-handle {
-          position: absolute;
-          bottom: 0;
-          right: 0;
-          width: ${20 * camera.zoom}px;
-          height: ${20 * camera.zoom}px;
-          cursor: nwse-resize;
-          opacity: 0;
-          transition: opacity 0.15s;
-          z-index: 10;
-        }
-        .card-resize-handle::after {
-          content: '';
-          position: absolute;
-          bottom: ${4 * camera.zoom}px;
-          right: ${4 * camera.zoom}px;
-          width: ${10 * camera.zoom}px;
-          height: ${10 * camera.zoom}px;
-          border-right: ${2 * camera.zoom}px solid rgba(0,0,0,0.25);
-          border-bottom: ${2 * camera.zoom}px solid rgba(0,0,0,0.25);
-          border-radius: 0 0 ${3 * camera.zoom}px 0;
-        }
-      `}</style>
+            .card-node-container {
+              width: 100%;
+              height: 100%;
+              border-radius: ${12 * camera.zoom}px;
+              overflow: hidden;
+              display: flex;
+              flex-direction: column;
+              transition: box-shadow 0.2s;
+              position: relative;
+            }
+            .card-node-container:hover .card-resize-handle {
+              opacity: 1;
+            }
+            .card-node-container .ProseMirror {
+              outline: none;
+              height: 100%;
+              overflow-y: auto;
+              padding: ${12 * camera.zoom}px ${16 * camera.zoom}px;
+              font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+              font-size: ${fontSize}px;
+              line-height: 1.5;
+              color: #111;
+              word-break: break-word;
+            }
+            .card-node-container .ProseMirror p {
+              margin: 0 0 ${4 * camera.zoom}px 0;
+            }
+            .card-node-container .ProseMirror ul {
+              padding-left: ${20 * camera.zoom}px;
+              margin: ${4 * camera.zoom}px 0;
+            }
+            .card-node-container .ProseMirror li {
+              margin: ${2 * camera.zoom}px 0;
+            }
+            .card-node-container .ProseMirror a,
+            .card-node-content a {
+              color: #2563EB;
+              text-decoration: underline;
+              cursor: pointer;
+            }
+            .card-node-container .ProseMirror a:hover,
+            .card-node-content a:hover {
+              color: #1d4ed8;
+            }
+            .card-node-content {
+              width: 100%;
+              height: 100%;
+              overflow-y: auto;
+              padding: ${12 * camera.zoom}px ${16 * camera.zoom}px;
+              font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+              font-size: ${fontSize}px;
+              line-height: 1.5;
+              color: #111;
+              word-break: break-word;
+            }
+            .card-node-content p { margin: 0 0 ${4 * camera.zoom}px 0; }
+            .card-node-content ul { padding-left: ${20 * camera.zoom}px; margin: ${4 * camera.zoom}px 0; }
+            .card-resize-handle {
+              position: absolute;
+              bottom: 0;
+              right: 0;
+              width: ${20 * camera.zoom}px;
+              height: ${20 * camera.zoom}px;
+              cursor: nwse-resize;
+              opacity: 0;
+              transition: opacity 0.15s;
+              z-index: 10;
+            }
+            .card-resize-handle::after {
+              content: '';
+              position: absolute;
+              bottom: ${4 * camera.zoom}px;
+              right: ${4 * camera.zoom}px;
+              width: ${10 * camera.zoom}px;
+              height: ${10 * camera.zoom}px;
+              border-right: ${2 * camera.zoom}px solid rgba(0,0,0,0.25);
+              border-bottom: ${2 * camera.zoom}px solid rgba(0,0,0,0.25);
+              border-radius: 0 0 ${3 * camera.zoom}px 0;
+            }
+          `}</style>
 
       <div
         className="card-node-container"
         style={{
-          background: node.cardColor,
+          background: theme.bg,
           boxShadow: node.isEditing
             ? `0 8px 32px rgba(0,0,0,0.15), 0 0 0 ${2 * camera.zoom}px #111`
             : isSelected
               ? `0 4px 16px rgba(0,0,0,0.1), 0 0 0 ${2 * camera.zoom}px #2196F3`
-              : '0 2px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)',
+              : `0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px ${theme.border}`,
         }}
       >
         {node.isEditing ? (

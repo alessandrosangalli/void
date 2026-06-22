@@ -26,15 +26,21 @@ interface GoogleAccountsOAuth2 {
   initTokenClient(config: {
     client_id: string
     scope: string
-    callback: string | ((resp: { error?: string }) => void)
+    callback: string | ((resp: TokenResponse) => void)
   }): {
-    callback: string | ((resp: { error?: string }) => void)
+    callback: string | ((resp: TokenResponse) => void)
     requestAccessToken(config: { prompt: string }): void
   }
   revoke(token: string, callback: () => void): void
 }
 
 declare global {
+  interface TokenResponse {
+    access_token: string
+    expires_in: string
+    error?: string
+  }
+
   interface Window {
     gapi: Gapi
     google: {

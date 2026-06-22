@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { type Editor } from '@tiptap/react'
-import { CARD_COLORS } from '../store'
+import { CARD_COLORS, getCardTheme } from '../store'
 import {
   Bold,
   Italic,
@@ -10,6 +10,7 @@ import {
   AlignRight,
   List,
   Palette,
+  Link2,
 } from 'lucide-react'
 
 const FONT_SIZES = [12, 14, 16, 20, 24, 32]
@@ -40,8 +41,7 @@ function TextColorButton({ editor }: { editor: Editor }) {
     return () => document.removeEventListener('pointerdown', handleClick)
   }, [open])
 
-  const currentColor =
-    editor.getAttributes('textStyle')?.color || '#111111'
+  const currentColor = editor.getAttributes('textStyle')?.color || '#111111'
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -78,6 +78,146 @@ function TextColorButton({ editor }: { editor: Editor }) {
             />
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+function LinkButton({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false)
+  const [href, setHref] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', handleClick)
+    return () => document.removeEventListener('pointerdown', handleClick)
+  }, [open])
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!href.trim()) {
+      editor.chain().focus().unsetLink().run()
+    } else {
+      let formattedHref = href.trim()
+      if (
+        !/^https?:\/\//i.test(formattedHref) &&
+        !/^mailto:/i.test(formattedHref) &&
+        !/^tel:/i.test(formattedHref) &&
+        !/^#/i.test(formattedHref)
+      ) {
+        formattedHref = `https://${formattedHref}`
+      }
+      editor.chain().focus().setLink({ href: formattedHref }).run()
+    }
+    setOpen(false)
+  }
+
+  const handleRemove = () => {
+    editor.chain().focus().unsetLink().run()
+    setOpen(false)
+  }
+
+  const isActive = editor.isActive('link')
+
+  const btnBase =
+    'flex items-center justify-center w-7 h-7 rounded-lg border-none cursor-pointer transition-all duration-150'
+  const btnActive = 'bg-black text-white shadow-sm'
+  const btnInactive = 'bg-transparent text-gray-600 hover:bg-gray-100'
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        className={`${btnBase} ${isActive ? btnActive : btnInactive}`}
+        onClick={() => {
+          const nextOpen = !open
+          setOpen(nextOpen)
+          if (nextOpen) {
+            setHref(editor.getAttributes('link')?.href || '')
+          }
+        }}
+        title="Insert Link"
+      >
+        <Link2 size={14} strokeWidth={2.5} />
+      </button>
+      {open && (
+        <form
+          onSubmit={handleSave}
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: 6,
+            background: 'white',
+            borderRadius: '12px',
+            padding: '10px',
+            boxShadow:
+              '0 10px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            width: '220px',
+            zIndex: 10002,
+          }}
+        >
+          <input
+            type="text"
+            value={href}
+            onChange={(e) => setHref(e.target.value)}
+            placeholder="Cole ou digite um link..."
+            autoFocus
+            style={{
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #d1d5db',
+              fontSize: '12px',
+              outline: 'none',
+              fontFamily: 'inherit',
+            }}
+          />
+          <div
+            style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}
+          >
+            {isActive && (
+              <button
+                type="button"
+                onClick={handleRemove}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #f3f4f6',
+                  background: '#f9fafb',
+                  color: '#ef4444',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Remover
+              </button>
+            )}
+            <button
+              type="submit"
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: 'none',
+                background: '#111',
+                color: 'white',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Salvar
+            </button>
+          </div>
+        </form>
       )}
     </div>
   )
@@ -186,8 +326,7 @@ export function CardToolbar({
           background: 'white',
           borderRadius: '14px',
           padding: '5px 8px',
-          boxShadow:
-            '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
           backdropFilter: 'blur(12px)',
         }}
       >
@@ -219,15 +358,11 @@ export function CardToolbar({
         {/* Font size */}
         <select
           className="card-toolbar-select"
-          value={
-            (() => {
-              const attrs = editor.getAttributes('textStyle')
-              const size = attrs?.fontSize
-                ? parseInt(attrs.fontSize)
-                : 16
-              return size
-            })()
-          }
+          value={(() => {
+            const attrs = editor.getAttributes('textStyle')
+            const size = attrs?.fontSize ? parseInt(attrs.fontSize) : 16
+            return size
+          })()}
           onChange={(e) => {
             const size = e.target.value
             editor
@@ -287,22 +422,29 @@ export function CardToolbar({
 
         <div className="card-toolbar-divider" />
 
+        <LinkButton editor={editor} />
+
+        <div className="card-toolbar-divider" />
+
         {/* Card colors */}
-        {CARD_COLORS.map((color) => (
-          <button
-            key={color}
-            className={`card-toolbar-color-dot ${cardColor === color ? 'active' : ''}`}
-            style={{
-              background: color,
-              boxShadow:
-                color === '#FFFFFF'
-                  ? 'inset 0 0 0 1px rgba(0,0,0,0.1)'
-                  : undefined,
-            }}
-            onClick={() => onChangeCardColor(color)}
-            title={`Card color ${color}`}
-          />
-        ))}
+        {CARD_COLORS.map((color) => {
+          const theme = getCardTheme(color)
+          const isDotActive = getCardTheme(cardColor).bg === theme.bg
+          return (
+            <button
+              key={color}
+              className={`card-toolbar-color-dot ${isDotActive ? 'active' : ''}`}
+              style={{
+                background: theme.bg,
+                border: isDotActive
+                  ? '1.5px solid #111'
+                  : `1.5px solid ${theme.border}`,
+              }}
+              onClick={() => onChangeCardColor(color)}
+              title={`Card color ${color}`}
+            />
+          )
+        })}
       </div>
     </div>
   )

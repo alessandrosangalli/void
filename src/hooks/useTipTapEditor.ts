@@ -4,6 +4,7 @@ import Underline from '@tiptap/extension-underline'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import TextAlign from '@tiptap/extension-text-align'
+import { Link } from '@tiptap/extension-link'
 import { Extension } from '@tiptap/core'
 
 // Custom extension to add fontSize support to TextStyle
@@ -54,6 +55,13 @@ export function useTipTapEditor({
       TextAlign.configure({
         types: ['paragraph'],
         alignments: ['left', 'center', 'right'],
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          rel: 'noopener noreferrer',
+          target: '_blank',
+        },
       }),
     ],
     content,

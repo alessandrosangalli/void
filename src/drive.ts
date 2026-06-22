@@ -76,6 +76,28 @@ export const initDriveApi = (onReady: () => void) => {
           apiKey: API_KEY,
           discoveryDocs: [DISCOVERY_DOC],
         })
+
+        // Restore token from localStorage if valid
+        const savedTokenStr = localStorage.getItem('void_google_token')
+        if (savedTokenStr) {
+          try {
+            const savedToken = JSON.parse(savedTokenStr)
+            if (
+              savedToken &&
+              savedToken.access_token &&
+              savedToken.expires_at > Date.now()
+            ) {
+              window.gapi.client.setToken({
+                access_token: savedToken.access_token,
+              })
+            } else {
+              localStorage.removeItem('void_google_token')
+            }
+          } catch (e) {
+            console.error('Failed to parse saved Google token', e)
+          }
+        }
+
         gapiInited = true
         maybeReady()
       })
@@ -109,19 +131,29 @@ export const loginToDrive = (onSuccess: () => void) => {
   }
   if (!tokenClient) return
 
-  tokenClient.callback = (resp: { error?: string }) => {
+  tokenClient.callback = (resp: TokenResponse) => {
     if (resp.error !== undefined) {
       console.error(resp)
       return
     }
+
+    // Save token to localStorage
+    const expiresIn = parseInt(resp.expires_in, 10) || 3600
+    const tokenData = {
+      access_token: resp.access_token,
+      expires_at: Date.now() + expiresIn * 1000,
+    }
+    localStorage.setItem('void_google_token', JSON.stringify(tokenData))
+
+    // Set token on gapi client
+    window.gapi.client.setToken(resp)
+
     onSuccess()
   }
 
-  if (window.gapi.client.getToken() === null) {
-    tokenClient.requestAccessToken({ prompt: 'consent' })
-  } else {
-    tokenClient.requestAccessToken({ prompt: '' })
-  }
+  // Request the token. Since we only want to prompt if consent is actually needed,
+  // we use prompt: '' to avoid forcing consent every time.
+  tokenClient.requestAccessToken({ prompt: '' })
 }
 
 export const logoutFromDrive = () => {
@@ -131,6 +163,7 @@ export const logoutFromDrive = () => {
     window.google.accounts.oauth2.revoke(token.access_token, () => {})
     window.gapi.client.setToken(null)
   }
+  localStorage.removeItem('void_google_token')
 }
 
 export const authenticateAndRun = (action: () => void) => {
