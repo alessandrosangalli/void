@@ -134,12 +134,12 @@ describe('zoomAtPoint', () => {
   it('preserves focal point in world coords', () => {
     const focalX = 500
     const focalY = 300
-    
+
     // The world point under the cursor should remain the same after zoom
     const worldBefore = screenToWorld(focalX, focalY, camera)
     const newCamera = zoomAtPoint(camera, 2, focalX, focalY)
     const worldAfter = screenToWorld(focalX, focalY, newCamera)
-    
+
     expect(worldAfter.x).toBeCloseTo(worldBefore.x)
     expect(worldAfter.y).toBeCloseTo(worldBefore.y)
   })
@@ -327,11 +327,17 @@ describe('pointerDistance', () => {
 
 describe('pointerMidpoint', () => {
   it('calculates midpoint', () => {
-    expect(pointerMidpoint({ x: 0, y: 0 }, { x: 100, y: 200 })).toEqual({ x: 50, y: 100 })
+    expect(pointerMidpoint({ x: 0, y: 0 }, { x: 100, y: 200 })).toEqual({
+      x: 50,
+      y: 100,
+    })
   })
 
   it('same point returns same point', () => {
-    expect(pointerMidpoint({ x: 50, y: 50 }, { x: 50, y: 50 })).toEqual({ x: 50, y: 50 })
+    expect(pointerMidpoint({ x: 50, y: 50 }, { x: 50, y: 50 })).toEqual({
+      x: 50,
+      y: 50,
+    })
   })
 })
 

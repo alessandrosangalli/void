@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { textsAtom, cameraAtom, activeToolAtom, selectedNodeAtom, pushHistoryAtom } from '../store'
+import {
+  textsAtom,
+  cameraAtom,
+  activeToolAtom,
+  selectedNodeAtom,
+  pushHistoryAtom,
+} from '../store'
 import { CardNode } from './CardNode'
 import { CardToolbar } from './CardToolbar'
 import type { Editor } from '@tiptap/react'
@@ -8,11 +14,7 @@ import type { Editor } from '@tiptap/react'
 export function CardLayer({
   onNodeInteraction,
 }: {
-  onNodeInteraction: (
-    e: React.PointerEvent,
-    type: 'text',
-    id: string,
-  ) => void
+  onNodeInteraction: (e: React.PointerEvent, type: 'text', id: string) => void
 }) {
   const [texts, setTexts] = useAtom(textsAtom)
   const [camera] = useAtom(cameraAtom)
@@ -24,35 +26,28 @@ export function CardLayer({
   const editingNode = texts.find((t) => t.isEditing)
   const editingEditor = editingNode ? editors.get(editingNode.id) || null : null
 
-  const handleEditorReady = useCallback(
-    (id: string, editor: Editor | null) => {
-      setEditors((prev) => {
-        const next = new Map(prev)
-        if (editor) {
-          next.set(id, editor)
-        } else {
-          next.delete(id)
-        }
-        return next
-      })
-    },
-    [],
-  )
+  const handleEditorReady = useCallback((id: string, editor: Editor | null) => {
+    setEditors((prev) => {
+      const next = new Map(prev)
+      if (editor) {
+        next.set(id, editor)
+      } else {
+        next.delete(id)
+      }
+      return next
+    })
+  }, [])
 
   const handleUpdateContent = useCallback(
     (id: string, content: string) => {
-      setTexts((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, content } : t)),
-      )
+      setTexts((prev) => prev.map((t) => (t.id === id ? { ...t, content } : t)))
     },
     [setTexts],
   )
 
   const handleUpdateSize = useCallback(
     (id: string, w: number, h: number) => {
-      setTexts((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, w, h } : t)),
-      )
+      setTexts((prev) => prev.map((t) => (t.id === id ? { ...t, w, h } : t)))
     },
     [setTexts],
   )
@@ -127,10 +122,7 @@ export function CardLayer({
             window.innerWidth - 600,
           ),
         ),
-        y: Math.max(
-          8,
-          editingNode.y * camera.zoom + camera.y - 50,
-        ),
+        y: Math.max(8, editingNode.y * camera.zoom + camera.y - 50),
       }
     : { x: 0, y: 0 }
 
@@ -142,7 +134,9 @@ export function CardLayer({
           node={node}
           camera={camera}
           activeTool={activeTool}
-          isSelected={selectedNode?.type === 'text' && selectedNode.id === node.id}
+          isSelected={
+            selectedNode?.type === 'text' && selectedNode.id === node.id
+          }
           onUpdateContent={handleUpdateContent}
           onUpdateSize={handleUpdateSize}
           onStartEditing={handleStartEditing}

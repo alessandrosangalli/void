@@ -20,6 +20,9 @@ vi.mock('../drive', () => ({
   checkIsAuthenticated: vi.fn(() => true),
   saveBoardToDrive: vi.fn(),
   loadBoardFromDriveId: vi.fn(),
+  registerAuthExpiredCallback: vi.fn(),
+  isTokenExpired: vi.fn(() => false),
+  checkFileExists: vi.fn(),
 }))
 
 import { useHydrateAtoms } from 'jotai/utils'
@@ -58,6 +61,7 @@ function AppWrapper({
 describe('Canvas Interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
   })
 
   it('draws a stroke on the canvas', async () => {
@@ -182,5 +186,62 @@ describe('Canvas Interactions', () => {
 
     // Verify camera moved
     expect(group.getAttribute('transform')).toContain('translate(50, 50)')
+  })
+
+  it('loads the last edited board on authentication if it still exists', async () => {
+    const mockLastBoard = {
+      id: 'board-123',
+      name: 'My Board.void',
+      parentId: 'root',
+    }
+    localStorage.setItem(
+      'void-last-edited-board',
+      JSON.stringify(mockLastBoard),
+    )
+
+    const mockBoardData = {
+      strokes: [[[10, 10, 0.5]]],
+      texts: [
+        {
+          id: 'text-1',
+          content: 'hello from drive',
+          x: 0,
+          y: 0,
+          w: 280,
+          h: 160,
+          isEditing: false,
+          cardColor: '#FEFCE8',
+        },
+      ],
+      images: [],
+      connections: [],
+      camera: { x: 10, y: 10, zoom: 1 },
+    }
+
+    const driveAPI = await import('../drive')
+    vi.mocked(driveAPI.checkFileExists).mockResolvedValueOnce(true)
+    vi.mocked(driveAPI.loadBoardFromDriveId).mockResolvedValueOnce(
+      mockBoardData,
+    )
+
+    const { container } = render(<App />, {
+      wrapper: ({ children }) => (
+        <AppWrapper initialValues={[[isAuthenticatedAtom, true]]}>
+          {children}
+        </AppWrapper>
+      ),
+    })
+
+    await waitFor(() => {
+      expect(driveAPI.checkFileExists).toHaveBeenCalledWith('board-123')
+      expect(driveAPI.loadBoardFromDriveId).toHaveBeenCalledWith('board-123')
+    })
+
+    // Check that elements from the loaded board are rendered
+    const canvas = container.querySelector('svg')!
+    await waitFor(() => {
+      const paths = canvas.querySelectorAll('path')
+      expect(paths.length).toBeGreaterThan(0)
+    })
   })
 })

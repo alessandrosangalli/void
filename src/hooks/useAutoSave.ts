@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { saveBoardToDrive } from '../drive'
+import { saveBoardToDrive, isTokenExpired, triggerAuthExpired } from '../drive'
 import { useSetAtom } from 'jotai'
 import { syncStatusAtom, activeBoardAtom } from '../store'
 import { toast } from 'sonner'
@@ -36,13 +36,29 @@ export function useAutoSave({
       state: BoardState
       folderId: string
     }) => {
-      await saveBoardToDrive(data.fileName, data.state, data.folderId)
+      return await saveBoardToDrive(data.fileName, data.state, data.folderId)
     },
     onMutate: () => {
       setSyncStatus('saving')
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setSyncStatus('synced')
+      if (data) {
+        setActiveBoard((prev) => {
+          if (!prev) return prev
+          if (
+            prev.id === 'auto-created' ||
+            prev.id === 'new' ||
+            prev.id === 'auto'
+          ) {
+            return {
+              ...prev,
+              id: data,
+            }
+          }
+          return prev
+        })
+      }
     },
     onError: () => {
       setSyncStatus('error')
@@ -69,6 +85,12 @@ export function useAutoSave({
 
         // 2. If authenticated, try to sync
         if (isAuthenticated) {
+          if (isTokenExpired()) {
+            setSyncStatus('error')
+            triggerAuthExpired()
+            return
+          }
+
           const hasContent =
             boardState.strokes.length > 0 ||
             boardState.texts.length > 0 ||

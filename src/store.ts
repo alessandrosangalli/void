@@ -118,6 +118,7 @@ export const activeBoardAtom = atom<{
 
 export const isAuthenticatedAtom = atom<boolean>(false)
 export const isLocalModeAtom = atom<boolean>(false)
+export const isSessionExpiredAtom = atom<boolean>(false)
 
 export type SyncStatus = 'synced' | 'saving' | 'error' | 'local'
 export const syncStatusAtom = atom<'local' | 'saving' | 'synced' | 'error'>(

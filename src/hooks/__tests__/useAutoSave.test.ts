@@ -12,6 +12,8 @@ vi.mock('../../drive', async (importOriginal) => {
   return {
     ...(actual as Record<string, unknown>),
     saveBoardToDrive: vi.fn(),
+    isTokenExpired: vi.fn(() => false),
+    triggerAuthExpired: vi.fn(),
   }
 })
 

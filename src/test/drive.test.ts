@@ -6,6 +6,7 @@ import {
   createFolder,
   deleteFile,
   moveFile,
+  checkFileExists,
 } from '../drive'
 
 /**
@@ -153,5 +154,17 @@ describe('Fake Drive — Edge Cases', () => {
 
   it('deleting nonexistent file does not throw', async () => {
     await expect(deleteFile('fake-id')).resolves.toBeUndefined()
+  })
+
+  it('checkFileExists returns true for existing non-trashed file, false for nonexistent or trashed', async () => {
+    await saveBoardToDrive('exists.void', { x: 1 }, 'root')
+    const files = await listFilesAndFolders('root')
+    const file = files.find((f) => f.name === 'exists.void')!
+
+    expect(await checkFileExists(file.id)).toBe(true)
+
+    await deleteFile(file.id)
+    expect(await checkFileExists(file.id)).toBe(false)
+    expect(await checkFileExists('random-nonexistent')).toBe(false)
   })
 })

@@ -53,6 +53,62 @@ const saveFakeData = (data: FakeFile[]) => {
   localStorage.setItem(FAKE_STORAGE_KEY, JSON.stringify(data))
 }
 
+export const isTokenExpired = (): boolean => {
+  if (USE_FAKE) return false
+  const savedTokenStr = localStorage.getItem('void_google_token')
+  if (!savedTokenStr) return true
+  try {
+    const savedToken = JSON.parse(savedTokenStr)
+    if (!savedToken || !savedToken.access_token || !savedToken.expires_at)
+      return true
+    return savedToken.expires_at <= Date.now() + 10000 // 10s buffer
+  } catch {
+    return true
+  }
+}
+
+let onAuthExpiredCallback: (() => void) | null = null
+
+export const registerAuthExpiredCallback = (callback: () => void) => {
+  onAuthExpiredCallback = callback
+}
+
+export const triggerAuthExpired = () => {
+  if (onAuthExpiredCallback) {
+    onAuthExpiredCallback()
+  }
+}
+
+export const handleDriveError = (error: unknown) => {
+  console.error('Google Drive API error:', error)
+  if (error && typeof error === 'object') {
+    const err = error as {
+      status?: number
+      result?: { error?: { code?: number } }
+      message?: string
+    }
+    const is401 =
+      err.status === 401 ||
+      err.result?.error?.code === 401 ||
+      err.message?.includes('401')
+    if (is401) {
+      triggerAuthExpired()
+    }
+  }
+}
+
+const handleFetchResponse = async (res: Response): Promise<Response> => {
+  if (!res.ok) {
+    if (res.status === 401) {
+      triggerAuthExpired()
+      throw new Error('Google Drive session expired')
+    }
+    const errText = await res.text()
+    throw new Error(`Google Drive API error (${res.status}): ${errText}`)
+  }
+  return res
+}
+
 // --- API FUNCTIONS ---
 
 export const initDriveApi = (onReady: () => void) => {
@@ -121,7 +177,8 @@ export const initDriveApi = (onReady: () => void) => {
 
 export const checkIsAuthenticated = () => {
   if (USE_FAKE) return true
-  return window.gapi?.client?.getToken() !== null
+  const hasToken = window.gapi?.client?.getToken() !== null
+  return hasToken && !isTokenExpired()
 }
 
 export const loginToDrive = (onSuccess: () => void) => {
@@ -199,7 +256,7 @@ export const listFilesAndFolders = async (parentId: string = 'root') => {
         })
         resolve(response.result.files || [])
       } catch (error) {
-        console.error(error)
+        handleDriveError(error)
         reject(error)
       }
     })
@@ -230,14 +287,18 @@ export const createFolder = async (
           mimeType: 'application/vnd.google-apps.folder',
           parents: [parentId],
         }
-        await fetch('https://www.googleapis.com/drive/v3/files', {
-          method: 'POST',
-          headers: authJsonHeaders(),
-          body: JSON.stringify(metadata),
-        })
+        const response = await fetch(
+          'https://www.googleapis.com/drive/v3/files',
+          {
+            method: 'POST',
+            headers: authJsonHeaders(),
+            body: JSON.stringify(metadata),
+          },
+        )
+        await handleFetchResponse(response)
         resolve()
       } catch (error) {
-        console.error(error)
+        handleDriveError(error)
         reject(error)
       }
     })
@@ -248,18 +309,21 @@ export const saveBoardToDrive = async <T extends object>(
   fileName: string,
   data: T,
   parentId: string = 'root',
-) => {
+): Promise<string> => {
   if (USE_FAKE) {
     const allData = getFakeData()
     const existingIndex = allData.findIndex(
       (f) => f.name === fileName && f.parentId === parentId && !f.trashed,
     )
 
+    let fileId: string
     if (existingIndex > -1) {
       allData[existingIndex].content = JSON.stringify(data)
+      fileId = allData[existingIndex].id
     } else {
+      fileId = 'file_' + Math.random().toString(36).substr(2, 9)
       allData.push({
-        id: 'file_' + Math.random().toString(36).substr(2, 9),
+        id: fileId,
         name: fileName,
         mimeType: 'application/json',
         parentId,
@@ -267,10 +331,10 @@ export const saveBoardToDrive = async <T extends object>(
       })
     }
     saveFakeData(allData)
-    return
+    return fileId
   }
 
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     authenticateAndRun(async () => {
       try {
         const fileContent = JSON.stringify(data)
@@ -282,6 +346,7 @@ export const saveBoardToDrive = async <T extends object>(
         })
         const files = searchRes.result.files
 
+        let fileId: string
         if (files && files.length > 0) {
           const metadata = { name: fileName, mimeType: 'application/json' }
           const form = new FormData()
@@ -291,8 +356,8 @@ export const saveBoardToDrive = async <T extends object>(
           )
           form.append('file', file)
 
-          const fileId = files[0].id
-          await fetch(
+          fileId = files[0].id
+          const response = await fetch(
             `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,
             {
               method: 'PATCH',
@@ -300,6 +365,7 @@ export const saveBoardToDrive = async <T extends object>(
               body: form,
             },
           )
+          await handleFetchResponse(response)
         } else {
           const metadata = {
             name: fileName,
@@ -313,7 +379,7 @@ export const saveBoardToDrive = async <T extends object>(
           )
           form.append('file', file)
 
-          await fetch(
+          const response = await fetch(
             'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
             {
               method: 'POST',
@@ -321,11 +387,37 @@ export const saveBoardToDrive = async <T extends object>(
               body: form,
             },
           )
+          const cleanRes = await handleFetchResponse(response)
+          const json = await cleanRes.json()
+          fileId = json.id
         }
-        resolve()
+        resolve(fileId)
       } catch (error) {
-        console.error(error)
+        handleDriveError(error)
         reject(error)
+      }
+    })
+  })
+}
+
+export const checkFileExists = async (fileId: string): Promise<boolean> => {
+  if (USE_FAKE) {
+    const file = getFakeData().find((f) => f.id === fileId && !f.trashed)
+    return !!file
+  }
+
+  return new Promise<boolean>((resolve) => {
+    authenticateAndRun(async () => {
+      try {
+        const file = await window.gapi.client.drive.files.get({
+          fileId: fileId,
+          fields: 'trashed',
+        })
+        const isTrashed = file.result.trashed
+        resolve(!isTrashed)
+      } catch (error) {
+        console.error('File does not exist or error checking:', error)
+        resolve(false)
       }
     })
   })
@@ -346,7 +438,7 @@ export const loadBoardFromDriveId = async (fileId: string) => {
         })
         resolve(fileRes.result)
       } catch (error) {
-        console.error(error)
+        handleDriveError(error)
         reject(error)
       }
     })
@@ -367,14 +459,18 @@ export const deleteFile = async (fileId: string) => {
   return new Promise<void>((resolve, reject) => {
     authenticateAndRun(async () => {
       try {
-        await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-          method: 'PATCH',
-          headers: authJsonHeaders(),
-          body: JSON.stringify({ trashed: true }),
-        })
+        const response = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${fileId}`,
+          {
+            method: 'PATCH',
+            headers: authJsonHeaders(),
+            body: JSON.stringify({ trashed: true }),
+          },
+        )
+        await handleFetchResponse(response)
         resolve()
       } catch (error) {
-        console.error(error)
+        handleDriveError(error)
         reject(error)
       }
     })
@@ -399,16 +495,17 @@ export const moveFile = async (
   return new Promise<void>((resolve, reject) => {
     authenticateAndRun(async () => {
       try {
-        await fetch(
+        const response = await fetch(
           `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${newParentId}&removeParents=${currentParentId}`,
           {
             method: 'PATCH',
             headers: authHeaders(),
           },
         )
+        await handleFetchResponse(response)
         resolve()
       } catch (error) {
-        console.error(error)
+        handleDriveError(error)
         reject(error)
       }
     })

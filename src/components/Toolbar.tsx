@@ -55,6 +55,7 @@ export function Toolbar() {
     setIsAuthenticated(false)
     setIsLocalMode(false)
     setActiveBoard(null)
+    localStorage.removeItem('void-last-edited-board')
   }
 
   const strokes = useAtomValue(strokesAtom)
@@ -85,8 +86,8 @@ export function Toolbar() {
     const finalName = tempName.endsWith('.void') ? tempName : tempName + '.void'
     try {
       const boardState = { strokes, texts, images, camera, connections }
-      await saveBoardToDrive(finalName, boardState)
-      setActiveBoard({ id: 'new', name: finalName, parentId: 'root' })
+      const boardId = await saveBoardToDrive(finalName, boardState)
+      setActiveBoard({ id: boardId, name: finalName, parentId: 'root' })
       setIsNaming(false)
     } catch (e) {
       console.error(e)

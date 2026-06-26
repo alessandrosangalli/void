@@ -157,6 +157,17 @@ export function FileExplorer({ isOpen, onClose }: FileExplorerProps) {
     try {
       await deleteFile(id)
       if (activeBoard?.id === id) setActiveBoard(null)
+      const saved = localStorage.getItem('void-last-edited-board')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (parsed && parsed.id === id) {
+            localStorage.removeItem('void-last-edited-board')
+          }
+        } catch {
+          // Ignore JSON parsing error
+        }
+      }
       invalidate()
       toast.success('Item movido para a lixeira')
     } catch {

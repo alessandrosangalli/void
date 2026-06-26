@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   cameraAtom,
@@ -9,6 +9,7 @@ import {
   activeBoardAtom,
   isAuthenticatedAtom,
   isLocalModeAtom,
+  isSessionExpiredAtom,
   applyTextNodeDefaults,
   selectedNodeAtom,
   connectionsAtom,
@@ -18,7 +19,16 @@ import { Toolbar } from './components/Toolbar'
 import { FileExplorer } from './components/FileExplorer'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { CardLayer } from './components/CardLayer'
-import { initDriveApi, checkIsAuthenticated } from './drive'
+import {
+  initDriveApi,
+  checkIsAuthenticated,
+  registerAuthExpiredCallback,
+  isTokenExpired,
+  checkFileExists,
+  loadBoardFromDriveId,
+} from './drive'
+import { toast } from 'sonner'
+import { SessionExpiredDialog } from './components/SessionExpiredDialog'
 import { useBoardEvents } from './hooks/useBoardEvents'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getSvgPathFromStroke } from './lib/utils'
@@ -99,11 +109,12 @@ export default function App() {
   const [images, setImages] = useAtom(imagesAtom)
   const [connections, setConnections] = useAtom(connectionsAtom)
   const [explorerState, setExplorerState] = useAtom(explorerStateAtom)
-  const [activeBoard] = useAtom(activeBoardAtom)
+  const [activeBoard, setActiveBoard] = useAtom(activeBoardAtom)
   const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom)
   const [isLocalMode] = useAtom(isLocalModeAtom)
   const [selectedNode] = useAtom(selectedNodeAtom)
   const pushHistory = useSetAtom(pushHistoryAtom)
+  const [isSessionExpired, setIsSessionExpired] = useAtom(isSessionExpiredAtom)
 
   const {
     handlePointerDown,
@@ -139,6 +150,103 @@ export default function App() {
       if (checkIsAuthenticated()) setIsAuthenticated(true)
     })
   }, [setIsAuthenticated])
+
+  const initialRestoreAttempted = useRef(false)
+
+  useEffect(() => {
+    if (isAuthenticated && !initialRestoreAttempted.current) {
+      initialRestoreAttempted.current = true
+      const saved = localStorage.getItem('void-last-edited-board')
+      if (saved) {
+        try {
+          const lastBoard = JSON.parse(saved)
+          if (lastBoard && lastBoard.id) {
+            const restoreLastBoard = async () => {
+              const toastId = toast.loading(
+                'Carregando seu último board editado...',
+              )
+              try {
+                const exists = await checkFileExists(lastBoard.id)
+                if (!exists) {
+                  toast.dismiss(toastId)
+                  localStorage.removeItem('void-last-edited-board')
+                  return
+                }
+                const data = await loadBoardFromDriveId(lastBoard.id)
+                if (!data) throw new Error('Dados não encontrados')
+
+                setStrokes(data.strokes || [])
+                setTexts((data.texts || []).map(applyTextNodeDefaults))
+                setImages(data.images || [])
+                setConnections(data.connections || [])
+                setCamera(data.camera || { x: 0, y: 0, zoom: 1 })
+
+                setActiveBoard({
+                  id: lastBoard.id,
+                  name: lastBoard.name,
+                  parentId: lastBoard.parentId,
+                })
+
+                setExplorerState((s) => ({ ...s, isOpen: false }))
+                toast.success('Último board carregado!', { id: toastId })
+              } catch (error) {
+                console.error('Failed to restore last board:', error)
+                toast.error('Falha ao carregar o último board editado', {
+                  id: toastId,
+                })
+              }
+            }
+            restoreLastBoard()
+          }
+        } catch (e) {
+          console.error(
+            'Failed to parse last edited board from localStorage',
+            e,
+          )
+        }
+      }
+    }
+  }, [
+    isAuthenticated,
+    setStrokes,
+    setTexts,
+    setImages,
+    setConnections,
+    setCamera,
+    setActiveBoard,
+    setExplorerState,
+  ])
+
+  useEffect(() => {
+    if (
+      activeBoard &&
+      activeBoard.id !== 'new' &&
+      activeBoard.id !== 'auto-created'
+    ) {
+      localStorage.setItem(
+        'void-last-edited-board',
+        JSON.stringify(activeBoard),
+      )
+    }
+  }, [activeBoard])
+
+  useEffect(() => {
+    registerAuthExpiredCallback(() => {
+      setIsSessionExpired(true)
+    })
+  }, [setIsSessionExpired])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const interval = setInterval(() => {
+      if (isTokenExpired()) {
+        setIsSessionExpired(true)
+      }
+    }, 10000)
+
+    return () => clearInterval(interval)
+  }, [isAuthenticated, setIsSessionExpired])
 
   useEffect(() => {
     if (isLocalMode) {
@@ -430,6 +538,7 @@ export default function App() {
         isOpen={explorerState.isOpen}
         onClose={() => setExplorerState((s) => ({ ...s, isOpen: false }))}
       />
+      <SessionExpiredDialog isOpen={isSessionExpired} boardState={boardState} />
     </>
   )
 }

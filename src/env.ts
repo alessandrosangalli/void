@@ -19,7 +19,8 @@ const envSchema = z
         return (
           !!data.VITE_GOOGLE_CLIENT_ID &&
           data.VITE_GOOGLE_CLIENT_ID.trim() !== '' &&
-          data.VITE_GOOGLE_CLIENT_ID !== 'your_client_id_here.apps.googleusercontent.com' &&
+          data.VITE_GOOGLE_CLIENT_ID !==
+            'your_client_id_here.apps.googleusercontent.com' &&
           !!data.VITE_GOOGLE_API_KEY &&
           data.VITE_GOOGLE_API_KEY.trim() !== '' &&
           data.VITE_GOOGLE_API_KEY !== 'your_api_key_here'
@@ -28,9 +29,10 @@ const envSchema = z
       return true
     },
     {
-      message: 'Google Client ID and API Key are required when VITE_USE_FAKE_DRIVE is false',
+      message:
+        'Google Client ID and API Key are required when VITE_USE_FAKE_DRIVE is false',
       path: ['VITE_GOOGLE_CLIENT_ID'],
-    }
+    },
   )
 
 // Parse and export variables

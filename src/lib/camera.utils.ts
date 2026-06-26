@@ -22,7 +22,7 @@ export const ZOOM_SENSITIVITY_TRACKPAD = 0.01
 export function screenToWorld(
   screenX: number,
   screenY: number,
-  camera: Camera
+  camera: Camera,
 ): { x: number; y: number } {
   return {
     x: (screenX - camera.x) / camera.zoom,
@@ -36,7 +36,7 @@ export function screenToWorld(
 export function worldToScreen(
   worldX: number,
   worldY: number,
-  camera: Camera
+  camera: Camera,
 ): { x: number; y: number } {
   return {
     x: worldX * camera.zoom + camera.x,
@@ -65,7 +65,7 @@ export function zoomAtPoint(
   camera: Camera,
   zoomFactor: number,
   focalX: number,
-  focalY: number
+  focalY: number,
 ): Camera {
   const nextZoom = clampZoom(camera.zoom * zoomFactor)
   const ratio = nextZoom / camera.zoom
@@ -83,20 +83,26 @@ export function zoomAtCenter(
   camera: Camera,
   direction: 'in' | 'out' | 'reset',
   viewportWidth: number,
-  viewportHeight: number
+  viewportHeight: number,
 ): Camera {
   if (direction === 'reset') {
     return { zoom: 1, x: 0, y: 0 }
   }
-  const factor = direction === 'in' ? ZOOM_STEP_KEYBOARD : 1 / ZOOM_STEP_KEYBOARD
+  const factor =
+    direction === 'in' ? ZOOM_STEP_KEYBOARD : 1 / ZOOM_STEP_KEYBOARD
   return zoomAtPoint(camera, factor, viewportWidth / 2, viewportHeight / 2)
 }
 
 /**
  * Calculates the zoom factor from a wheel event deltaY value.
  */
-export function wheelDeltaToZoomFactor(deltaY: number, isDiscreteWheel: boolean): number {
-  const sensitivity = isDiscreteWheel ? ZOOM_SENSITIVITY_TRACKPAD : ZOOM_SENSITIVITY_WHEEL
+export function wheelDeltaToZoomFactor(
+  deltaY: number,
+  isDiscreteWheel: boolean,
+): number {
+  const sensitivity = isDiscreteWheel
+    ? ZOOM_SENSITIVITY_TRACKPAD
+    : ZOOM_SENSITIVITY_WHEEL
   return Math.pow(1.1, -deltaY * sensitivity)
 }
 
@@ -111,7 +117,11 @@ export function panCamera(camera: Camera, dx: number, dy: number): Camera {
  * Detects whether a wheel event is from a discrete mouse wheel
  * (as opposed to a smooth trackpad).
  */
-export function isDiscreteWheelEvent(deltaMode: number, deltaY: number, deltaX: number): boolean {
+export function isDiscreteWheelEvent(
+  deltaMode: number,
+  deltaY: number,
+  deltaX: number,
+): boolean {
   return deltaMode !== 0 || (Math.abs(deltaY) >= 20 && Math.abs(deltaX) < 1)
 }
 
@@ -120,7 +130,7 @@ export function isDiscreteWheelEvent(deltaMode: number, deltaY: number, deltaX: 
  */
 export function pinchZoomFactor(
   currentDistance: number,
-  previousDistance: number
+  previousDistance: number,
 ): number {
   if (previousDistance === 0) return 1
   return currentDistance / previousDistance
@@ -131,7 +141,7 @@ export function pinchZoomFactor(
  */
 export function pointerDistance(
   p1: { x: number; y: number },
-  p2: { x: number; y: number }
+  p2: { x: number; y: number },
 ): number {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y)
 }
@@ -141,7 +151,7 @@ export function pointerDistance(
  */
 export function pointerMidpoint(
   p1: { x: number; y: number },
-  p2: { x: number; y: number }
+  p2: { x: number; y: number },
 ): { x: number; y: number } {
   return {
     x: (p1.x + p2.x) / 2,
@@ -155,7 +165,7 @@ export function pointerMidpoint(
 export function fitImageDimensions(
   width: number,
   height: number,
-  maxWidth: number
+  maxWidth: number,
 ): { w: number; h: number } {
   if (width <= maxWidth) return { w: width, h: height }
   const ratio = maxWidth / width
