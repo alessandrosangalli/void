@@ -93,8 +93,16 @@ export const imagesAtom = atom<ImageNode[]>([])
 
 export interface Connection {
   id: string
-  from: { type: 'text' | 'image'; id: string }
-  to: { type: 'text' | 'image'; id: string }
+  from: {
+    type: 'text' | 'image'
+    id: string
+    side?: 'top' | 'right' | 'bottom' | 'left'
+  }
+  to: {
+    type: 'text' | 'image'
+    id: string
+    side?: 'top' | 'right' | 'bottom' | 'left'
+  }
 }
 export const connectionsAtom = atom<Connection[]>([])
 

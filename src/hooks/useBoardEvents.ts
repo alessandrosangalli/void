@@ -27,6 +27,22 @@ import {
   fitImageDimensions,
 } from '../lib/camera.utils'
 
+function getSidePoint(
+  node: { x: number; y: number; w: number; h: number },
+  side: 'top' | 'right' | 'bottom' | 'left',
+) {
+  switch (side) {
+    case 'top':
+      return { x: node.x + node.w / 2, y: node.y }
+    case 'right':
+      return { x: node.x + node.w, y: node.y + node.h / 2 }
+    case 'bottom':
+      return { x: node.x + node.w / 2, y: node.y + node.h }
+    case 'left':
+      return { x: node.x, y: node.y + node.h / 2 }
+  }
+}
+
 export function useBoardEvents() {
   const [activeTool, setActiveTool] = useAtom(activeToolAtom)
   const [camera, setCamera] = useAtom(cameraAtom)
@@ -49,7 +65,11 @@ export function useBoardEvents() {
   } | null>(null)
   const [lastPointer, setLastPointer] = useState<[number, number] | null>(null)
   const [activeArrow, setActiveArrow] = useState<{
-    from: { id: string; type: 'text' | 'image' }
+    from: {
+      id: string
+      type: 'text' | 'image'
+      side?: 'top' | 'right' | 'bottom' | 'left'
+    }
     currentX: number
     currentY: number
   } | null>(null)
@@ -329,8 +349,44 @@ export function useBoardEvents() {
 
       if (activeArrow) {
         const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY, camera)
+
+        let snapX = wx
+        let snapY = wy
+        const SNAP_DIST = 16
+
+        let snapped = false
+        for (const t of texts) {
+          if (t.id === activeArrow.from.id) continue
+          for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+            const pt = getSidePoint(t, side)
+            if (Math.hypot(wx - pt.x, wy - pt.y) < SNAP_DIST) {
+              snapX = pt.x
+              snapY = pt.y
+              snapped = true
+              break
+            }
+          }
+          if (snapped) break
+        }
+
+        if (!snapped) {
+          for (const img of images) {
+            if (img.id === activeArrow.from.id) continue
+            for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+              const pt = getSidePoint(img, side)
+              if (Math.hypot(wx - pt.x, wy - pt.y) < SNAP_DIST) {
+                snapX = pt.x
+                snapY = pt.y
+                snapped = true
+                break
+              }
+            }
+            if (snapped) break
+          }
+        }
+
         setActiveArrow((prev) =>
-          prev ? { ...prev, currentX: wx, currentY: wy } : null,
+          prev ? { ...prev, currentX: snapX, currentY: snapY } : null,
         )
         return
       }
@@ -393,41 +449,90 @@ export function useBoardEvents() {
       if (activeArrow) {
         const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY, camera)
 
-        const targetText = texts.find(
-          (t) =>
-            wx >= t.x &&
-            wx <= t.x + t.w &&
-            wy >= t.y &&
-            wy <= t.y + t.h &&
-            t.id !== activeArrow.from.id,
-        )
-        const targetImage = targetText
-          ? null
-          : images.find(
-              (img) =>
-                wx >= img.x &&
-                wx <= img.x + img.w &&
-                wy >= img.y &&
-                wy <= img.y + img.h &&
-                img.id !== activeArrow.from.id,
-            )
+        let targetHandle: {
+          id: string
+          type: 'text' | 'image'
+          side: 'top' | 'right' | 'bottom' | 'left'
+        } | null = null
+        const SNAP_DIST = 16
 
-        const target = targetText
-          ? { id: targetText.id, type: 'text' as const }
-          : targetImage
-            ? { id: targetImage.id, type: 'image' as const }
-            : null
+        for (const t of texts) {
+          if (t.id === activeArrow.from.id) continue
+          for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+            const pt = getSidePoint(t, side)
+            if (Math.hypot(wx - pt.x, wy - pt.y) < SNAP_DIST) {
+              targetHandle = { id: t.id, type: 'text', side }
+              break
+            }
+          }
+          if (targetHandle) break
+        }
 
-        if (target) {
+        if (!targetHandle) {
+          for (const img of images) {
+            if (img.id === activeArrow.from.id) continue
+            for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+              const pt = getSidePoint(img, side)
+              if (Math.hypot(wx - pt.x, wy - pt.y) < SNAP_DIST) {
+                targetHandle = { id: img.id, type: 'image', side }
+                break
+              }
+            }
+            if (targetHandle) break
+          }
+        }
+
+        if (targetHandle) {
           pushHistory()
           setConnections((prev) => [
             ...prev,
             {
               id: Math.random().toString(36).substr(2, 9),
               from: activeArrow.from,
-              to: target,
+              to: {
+                id: targetHandle!.id,
+                type: targetHandle!.type,
+                side: targetHandle!.side,
+              },
             },
           ])
+        } else {
+          const targetText = texts.find(
+            (t) =>
+              wx >= t.x &&
+              wx <= t.x + t.w &&
+              wy >= t.y &&
+              wy <= t.y + t.h &&
+              t.id !== activeArrow.from.id,
+          )
+          const targetImage = targetText
+            ? null
+            : images.find(
+                (img) =>
+                  wx >= img.x &&
+                  wx <= img.x + img.w &&
+                  wy >= img.y &&
+                  wy <= img.y + img.h &&
+                  img.id !== activeArrow.from.id,
+              )
+
+          const target = targetText
+            ? { id: targetText.id, type: 'text' as const }
+            : targetImage
+              ? { id: targetImage.id, type: 'image' as const }
+              : null
+
+          if (target) {
+            pushHistory()
+            setConnections((prev) => [
+              ...prev,
+              {
+                id: Math.random().toString(36).substr(2, 9),
+                from: activeArrow.from,
+                to: target,
+              },
+            ])
+          }
         }
 
         setActiveArrow(null)
@@ -520,6 +625,7 @@ export function useBoardEvents() {
       e: React.PointerEvent,
       type: 'image' | 'stroke' | 'text',
       id: string | number,
+      side?: 'top' | 'right' | 'bottom' | 'left',
     ) => {
       if (activeTool === 'eraser') {
         e.stopPropagation()
@@ -550,7 +656,7 @@ export function useBoardEvents() {
           e.stopPropagation()
           const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY, camera)
           setActiveArrow({
-            from: { id: id as string, type },
+            from: { id: id as string, type, side },
             currentX: wx,
             currentY: wy,
           })

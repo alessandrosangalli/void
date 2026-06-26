@@ -113,6 +113,7 @@ describe('FileExplorer Component', () => {
       strokes: [],
       texts: [],
       images: [],
+      connections: [],
       camera: { x: 0, y: 0, zoom: 1 },
     })
 

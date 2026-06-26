@@ -28,7 +28,11 @@ export function CardNode({
   onStopEditing: (id: string) => void
   onDelete: (id: string) => void
   onResizeStart: () => void
-  onDragStart: (e: React.PointerEvent, id: string) => void
+  onDragStart: (
+    e: React.PointerEvent,
+    id: string,
+    side?: 'top' | 'right' | 'bottom' | 'left',
+  ) => void
   onEditorReady: (id: string, editor: Editor | null) => void
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -287,6 +291,45 @@ export function CardNode({
               border-bottom: ${2 * camera.zoom}px solid rgba(0,0,0,0.25);
               border-radius: 0 0 ${3 * camera.zoom}px 0;
             }
+            .card-connect-handle {
+              position: absolute;
+              width: ${12 * camera.zoom}px;
+              height: ${12 * camera.zoom}px;
+              background-color: #2196F3;
+              border: ${2 * camera.zoom}px solid #ffffff;
+              border-radius: 50%;
+              cursor: crosshair;
+              z-index: 100;
+              transition: transform 0.15s, background-color 0.15s;
+            }
+            .card-connect-handle:hover {
+              transform: scale(1.3);
+              background-color: #1976D2;
+            }
+            .card-connect-handle.top {
+              top: ${-6 * camera.zoom}px;
+              left: calc(50% - ${6 * camera.zoom}px);
+            }
+            .card-connect-handle.right {
+              top: calc(50% - ${6 * camera.zoom}px);
+              right: ${-6 * camera.zoom}px;
+            }
+            .card-connect-handle.bottom {
+              bottom: ${-6 * camera.zoom}px;
+              left: calc(50% - ${6 * camera.zoom}px);
+            }
+            .card-connect-handle.left {
+              top: calc(50% - ${6 * camera.zoom}px);
+              left: ${-6 * camera.zoom}px;
+            }
+            .card-connect-handle::before {
+              content: '';
+              position: absolute;
+              top: ${-8 * camera.zoom}px;
+              left: ${-8 * camera.zoom}px;
+              right: ${-8 * camera.zoom}px;
+              bottom: ${-8 * camera.zoom}px;
+            }
           `}</style>
 
       <div
@@ -320,6 +363,40 @@ export function CardNode({
             onPointerUp={handleResizeEnd}
             onPointerCancel={handleResizeEnd}
           />
+        )}
+
+        {/* Connection Handles */}
+        {activeTool === 'arrow' && !node.isEditing && (
+          <>
+            <div
+              className="card-connect-handle top"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onDragStart(e, node.id, 'top')
+              }}
+            />
+            <div
+              className="card-connect-handle right"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onDragStart(e, node.id, 'right')
+              }}
+            />
+            <div
+              className="card-connect-handle bottom"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onDragStart(e, node.id, 'bottom')
+              }}
+            />
+            <div
+              className="card-connect-handle left"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onDragStart(e, node.id, 'left')
+              }}
+            />
+          </>
         )}
       </div>
     </div>

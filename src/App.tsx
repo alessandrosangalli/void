@@ -23,9 +23,27 @@ import { useBoardEvents } from './hooks/useBoardEvents'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getSvgPathFromStroke } from './lib/utils'
 
+function getSidePoint(
+  node: { x: number; y: number; w: number; h: number },
+  side: 'top' | 'right' | 'bottom' | 'left',
+) {
+  switch (side) {
+    case 'top':
+      return { x: node.x + node.w / 2, y: node.y }
+    case 'right':
+      return { x: node.x + node.w, y: node.y + node.h / 2 }
+    case 'bottom':
+      return { x: node.x + node.w / 2, y: node.y + node.h }
+    case 'left':
+      return { x: node.x, y: node.y + node.h / 2 }
+  }
+}
+
 function getArrowPoints(
   fromNode: { x: number; y: number; w: number; h: number },
   toNode: { x: number; y: number; w: number; h: number },
+  fromSide?: 'top' | 'right' | 'bottom' | 'left',
+  toSide?: 'top' | 'right' | 'bottom' | 'left',
 ) {
   const cx1 = fromNode.x + fromNode.w / 2
   const cy1 = fromNode.y + fromNode.h / 2
@@ -35,39 +53,43 @@ function getArrowPoints(
   const dx = cx2 - cx1
   const dy = cy2 - cy1
 
+  let dynStartX: number
+  let dynStartY: number
+  let dynEndX: number
+  let dynEndY: number
+
   if (Math.abs(dx) > Math.abs(dy)) {
     if (dx > 0) {
-      return {
-        startX: fromNode.x + fromNode.w,
-        startY: cy1,
-        endX: toNode.x,
-        endY: cy2,
-      }
+      dynStartX = fromNode.x + fromNode.w
+      dynStartY = cy1
+      dynEndX = toNode.x
+      dynEndY = cy2
     } else {
-      return {
-        startX: fromNode.x,
-        startY: cy1,
-        endX: toNode.x + toNode.w,
-        endY: cy2,
-      }
+      dynStartX = fromNode.x
+      dynStartY = cy1
+      dynEndX = toNode.x + toNode.w
+      dynEndY = cy2
     }
   } else {
     if (dy > 0) {
-      return {
-        startX: cx1,
-        startY: fromNode.y + fromNode.h,
-        endX: cx2,
-        endY: toNode.y,
-      }
+      dynStartX = cx1
+      dynStartY = fromNode.y + fromNode.h
+      dynEndX = cx2
+      dynEndY = toNode.y
     } else {
-      return {
-        startX: cx1,
-        startY: fromNode.y,
-        endX: cx2,
-        endY: toNode.y + toNode.h,
-      }
+      dynStartX = cx1
+      dynStartY = fromNode.y
+      dynEndX = cx2
+      dynEndY = toNode.y + toNode.h
     }
   }
+
+  const startX = fromSide ? getSidePoint(fromNode, fromSide).x : dynStartX
+  const startY = fromSide ? getSidePoint(fromNode, fromSide).y : dynStartY
+  const endX = toSide ? getSidePoint(toNode, toSide).x : dynEndX
+  const endY = toSide ? getSidePoint(toNode, toSide).y : dynEndY
+
+  return { startX, startY, endX, endY }
 }
 
 export default function App() {
@@ -198,6 +220,8 @@ export default function App() {
             const { startX, startY, endX, endY } = getArrowPoints(
               fromNode,
               toNode,
+              conn.from.side,
+              conn.to.side,
             )
 
             return (
@@ -245,18 +269,25 @@ export default function App() {
                 activeArrow.from.type,
               )
               if (!fromNode) return null
-              const cx1 = fromNode.x + fromNode.w / 2
-              const cy1 = fromNode.y + fromNode.h / 2
-              const dx = activeArrow.currentX - cx1
-              const dy = activeArrow.currentY - cy1
               let startX: number
               let startY: number
-              if (Math.abs(dx) > Math.abs(dy)) {
-                startX = dx > 0 ? fromNode.x + fromNode.w : fromNode.x
-                startY = cy1
+              const fromSide = activeArrow.from.side
+              if (fromSide) {
+                const pt = getSidePoint(fromNode, fromSide)
+                startX = pt.x
+                startY = pt.y
               } else {
-                startX = cx1
-                startY = dy > 0 ? fromNode.y + fromNode.h : fromNode.y
+                const cx1 = fromNode.x + fromNode.w / 2
+                const cy1 = fromNode.y + fromNode.h / 2
+                const dx = activeArrow.currentX - cx1
+                const dy = activeArrow.currentY - cy1
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  startX = dx > 0 ? fromNode.x + fromNode.w : fromNode.x
+                  startY = cy1
+                } else {
+                  startX = cx1
+                  startY = dy > 0 ? fromNode.y + fromNode.h : fromNode.y
+                }
               }
               return (
                 <line
@@ -306,6 +337,66 @@ export default function App() {
                     strokeWidth={2 / camera.zoom}
                     style={{ pointerEvents: 'none' }}
                   />
+                )}
+                {activeTool === 'arrow' && (
+                  <>
+                    {/* Top handle */}
+                    <circle
+                      cx={img.x + img.w / 2}
+                      cy={img.y}
+                      r={6 / camera.zoom}
+                      fill="#2196F3"
+                      stroke="#ffffff"
+                      strokeWidth={2 / camera.zoom}
+                      style={{ cursor: 'crosshair' }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        handleNodeInteraction(e, 'image', img.id, 'top')
+                      }}
+                    />
+                    {/* Right handle */}
+                    <circle
+                      cx={img.x + img.w}
+                      cy={img.y + img.h / 2}
+                      r={6 / camera.zoom}
+                      fill="#2196F3"
+                      stroke="#ffffff"
+                      strokeWidth={2 / camera.zoom}
+                      style={{ cursor: 'crosshair' }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        handleNodeInteraction(e, 'image', img.id, 'right')
+                      }}
+                    />
+                    {/* Bottom handle */}
+                    <circle
+                      cx={img.x + img.w / 2}
+                      cy={img.y + img.h}
+                      r={6 / camera.zoom}
+                      fill="#2196F3"
+                      stroke="#ffffff"
+                      strokeWidth={2 / camera.zoom}
+                      style={{ cursor: 'crosshair' }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        handleNodeInteraction(e, 'image', img.id, 'bottom')
+                      }}
+                    />
+                    {/* Left handle */}
+                    <circle
+                      cx={img.x}
+                      cy={img.y + img.h / 2}
+                      r={6 / camera.zoom}
+                      fill="#2196F3"
+                      stroke="#ffffff"
+                      strokeWidth={2 / camera.zoom}
+                      style={{ cursor: 'crosshair' }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        handleNodeInteraction(e, 'image', img.id, 'left')
+                      }}
+                    />
+                  </>
                 )}
               </g>
             )

@@ -17,6 +17,7 @@ import {
   cameraAtom,
   activeBoardAtom,
   applyTextNodeDefaults,
+  connectionsAtom,
 } from '../store'
 import { toast } from 'sonner'
 import {
@@ -74,6 +75,7 @@ export function FileExplorer({ isOpen, onClose }: FileExplorerProps) {
   const setStrokes = useSetAtom(strokesAtom)
   const setTexts = useSetAtom(textsAtom)
   const setImages = useSetAtom(imagesAtom)
+  const setConnections = useSetAtom(connectionsAtom)
   const setCamera = useSetAtom(cameraAtom)
   const [activeBoard, setActiveBoard] = useAtom(activeBoardAtom)
 
@@ -139,6 +141,7 @@ export function FileExplorer({ isOpen, onClose }: FileExplorerProps) {
         strokes: [],
         texts: [],
         images: [],
+        connections: [],
         camera: { x: 0, y: 0, zoom: 1 },
       }
       await saveBoardToDrive(fileName, emptyState, currentFolder.id)
@@ -182,6 +185,7 @@ export function FileExplorer({ isOpen, onClose }: FileExplorerProps) {
       setStrokes(data.strokes || [])
       setTexts((data.texts || []).map(applyTextNodeDefaults))
       setImages(data.images || [])
+      setConnections(data.connections || [])
       setCamera(data.camera || { x: 0, y: 0, zoom: 1 })
 
       setActiveBoard({
