@@ -4,7 +4,7 @@ import { useAutoSave } from '../useAutoSave'
 import { TestWrapper } from '../../test/utils'
 import * as driveAPI from '../../drive'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { syncStatusAtom, type Point } from '../../store'
+import { syncStatusAtom, type Point, type Connection } from '../../store'
 
 // Mock the drive API module
 vi.mock('../../drive', async (importOriginal) => {
@@ -38,6 +38,7 @@ describe('useAutoSave', () => {
     strokes: [] as Point[][],
     texts: [],
     images: [],
+    connections: [] as Connection[],
     camera: { x: 0, y: 0, zoom: 1 },
   }
 

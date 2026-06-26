@@ -145,7 +145,7 @@ export function CardNode({
       return
     }
 
-    if (activeTool === 'move') {
+    if (activeTool === 'move' || activeTool === 'arrow') {
       e.stopPropagation()
       onDragStart(e, node.id)
       return
@@ -183,7 +183,9 @@ export function CardNode({
         ? 'grab'
         : activeTool === 'text'
           ? 'text'
-          : 'default'
+          : activeTool === 'arrow'
+            ? 'crosshair'
+            : 'default'
 
   const theme = getCardTheme(node.cardColor)
 

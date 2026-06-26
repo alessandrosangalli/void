@@ -1,6 +1,6 @@
 import { atom } from 'jotai'
 
-export type ToolType = 'draw' | 'move' | 'eraser' | 'text'
+export type ToolType = 'draw' | 'move' | 'eraser' | 'text' | 'arrow'
 export const activeToolAtom = atom<ToolType>('draw')
 export const cameraAtom = atom<{ x: number; y: number; zoom: number }>({
   x: 0,
@@ -91,6 +91,13 @@ export type ImageNode = {
 }
 export const imagesAtom = atom<ImageNode[]>([])
 
+export interface Connection {
+  id: string
+  from: { type: 'text' | 'image'; id: string }
+  to: { type: 'text' | 'image'; id: string }
+}
+export const connectionsAtom = atom<Connection[]>([])
+
 export const explorerStateAtom = atom<{
   isOpen: boolean
   mode: 'save' | 'load'
@@ -114,6 +121,7 @@ export type BoardState = {
   strokes: Point[][]
   texts: TextNode[]
   images: ImageNode[]
+  connections: Connection[]
 }
 
 export const undoStackAtom = atom<BoardState[]>([])
@@ -124,6 +132,7 @@ export const pushHistoryAtom = atom(null, (get, set) => {
     strokes: get(strokesAtom),
     texts: get(textsAtom),
     images: get(imagesAtom),
+    connections: get(connectionsAtom),
   }
   set(undoStackAtom, (prev) => [...prev, currentState])
   set(redoStackAtom, []) // Clear redo stack on new action
@@ -140,12 +149,14 @@ export const undoAtom = atom(null, (get, set) => {
     strokes: get(strokesAtom),
     texts: get(textsAtom),
     images: get(imagesAtom),
+    connections: get(connectionsAtom),
   }
   set(redoStackAtom, (prev) => [...prev, currentState])
 
   set(strokesAtom, prevState.strokes)
   set(textsAtom, prevState.texts)
   set(imagesAtom, prevState.images)
+  set(connectionsAtom, prevState.connections || [])
   set(undoStackAtom, nextUndoStack)
   set(selectedNodeAtom, null)
 })
@@ -161,12 +172,14 @@ export const redoAtom = atom(null, (get, set) => {
     strokes: get(strokesAtom),
     texts: get(textsAtom),
     images: get(imagesAtom),
+    connections: get(connectionsAtom),
   }
   set(undoStackAtom, (prev) => [...prev, currentState])
 
   set(strokesAtom, nextState.strokes)
   set(textsAtom, nextState.texts)
   set(imagesAtom, nextState.images)
+  set(connectionsAtom, nextState.connections || [])
   set(redoStackAtom, nextRedoStack)
   set(selectedNodeAtom, null)
 })

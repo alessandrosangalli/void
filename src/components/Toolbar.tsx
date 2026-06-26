@@ -11,6 +11,7 @@ import {
   syncStatusAtom,
   isLocalModeAtom,
   isAuthenticatedAtom,
+  connectionsAtom,
 } from '../store'
 import type { ToolType } from '../store'
 import { saveBoardToDrive, logoutFromDrive } from '../drive'
@@ -27,6 +28,7 @@ import {
   LogOut,
   Cloud,
   HelpCircle,
+  ArrowUpRight,
 } from 'lucide-react'
 import { HelpDialog } from './HelpDialog'
 import { Button } from '@/components/ui/button'
@@ -58,6 +60,7 @@ export function Toolbar() {
   const strokes = useAtomValue(strokesAtom)
   const texts = useAtomValue(textsAtom)
   const images = useAtomValue(imagesAtom)
+  const connections = useAtomValue(connectionsAtom)
 
   const [isNaming, setIsNaming] = useState(false)
   const [tempName, setTempName] = useState('')
@@ -71,6 +74,7 @@ export function Toolbar() {
   }[] = [
     { id: 'move', label: 'Mover', shortcut: 'Q', icon: MousePointer2 },
     { id: 'draw', label: 'Desenhar', shortcut: 'W', icon: Pencil },
+    { id: 'arrow', label: 'Flecha', shortcut: 'F', icon: ArrowUpRight },
     { id: 'eraser', label: 'Apagar', shortcut: 'E', icon: Eraser },
     { id: 'text', label: 'Texto', shortcut: 'R', icon: Type },
     { id: 'image', label: 'Imagem', icon: ImageIcon },
@@ -80,7 +84,7 @@ export function Toolbar() {
     if (!tempName.trim()) return setIsNaming(false)
     const finalName = tempName.endsWith('.void') ? tempName : tempName + '.void'
     try {
-      const boardState = { strokes, texts, images, camera }
+      const boardState = { strokes, texts, images, camera, connections }
       await saveBoardToDrive(finalName, boardState)
       setActiveBoard({ id: 'new', name: finalName, parentId: 'root' })
       setIsNaming(false)

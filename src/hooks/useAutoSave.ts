@@ -4,12 +4,13 @@ import { saveBoardToDrive } from '../drive'
 import { useSetAtom } from 'jotai'
 import { syncStatusAtom, activeBoardAtom } from '../store'
 import { toast } from 'sonner'
-import type { Point, TextNode, ImageNode } from '../store'
+import type { Point, TextNode, ImageNode, Connection } from '../store'
 
 interface BoardState {
   strokes: Point[][]
   texts: TextNode[]
   images: ImageNode[]
+  connections: Connection[]
   camera: { x: number; y: number; zoom: number }
 }
 
@@ -71,7 +72,8 @@ export function useAutoSave({
           const hasContent =
             boardState.strokes.length > 0 ||
             boardState.texts.length > 0 ||
-            boardState.images.length > 0
+            boardState.images.length > 0 ||
+            (boardState.connections && boardState.connections.length > 0)
 
           if (activeBoard) {
             mutate({
