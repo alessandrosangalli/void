@@ -196,17 +196,20 @@ export function CardNode({
   return (
     <div
       ref={cardRef}
-      style={{
-        position: 'fixed',
-        left,
-        top,
-        width,
-        height,
-        zIndex: node.isEditing ? 10000 : 100,
-        cursor,
-        pointerEvents:
-          activeTool === 'draw' && !node.isEditing ? 'none' : 'auto',
-      }}
+      style={
+        {
+          position: 'fixed',
+          left,
+          top,
+          width,
+          height,
+          zIndex: node.isEditing ? 10000 : 100,
+          cursor,
+          pointerEvents:
+            activeTool === 'draw' && !node.isEditing ? 'none' : 'auto',
+          '--zoom': camera.zoom,
+        } as React.CSSProperties
+      }
       onPointerDown={handlePointerDown}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}

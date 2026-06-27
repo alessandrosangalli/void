@@ -18,10 +18,22 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: (element) => element.style.fontSize || null,
+            parseHTML: (element) => {
+              const style = element.style.fontSize
+              if (!style) return null
+              const match = style.match(
+                /calc\((.+?)\s*\*\s*var\(--zoom,\s*1\)\)/i,
+              )
+              if (match) return match[1]
+              return style
+            },
             renderHTML: (attributes) => {
               if (!attributes.fontSize) return {}
-              return { style: `font-size: ${attributes.fontSize}` }
+              const val = attributes.fontSize
+              if (val.includes('var(') || val.includes('calc(')) {
+                return { style: `font-size: ${val}` }
+              }
+              return { style: `font-size: calc(${val} * var(--zoom, 1))` }
             },
           },
         },
